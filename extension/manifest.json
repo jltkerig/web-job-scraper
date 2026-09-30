@@ -1,0 +1,44 @@
+{
+  "manifest_version": 2,
+  "name": "Web Job Scraper",
+  "version": "0.1.7",
+  "description": "Saves the jobs you browse on LinkedIn into daily files that Job Finder imports.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "web-job-scraper@jamie.local",
+      "strict_min_version": "115.0",
+      "update_url": "https://jltkerig.github.io/web-job-scraper/updates.json",
+      "data_collection_permissions": { "required": ["none"] }
+    }
+  },
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "downloads",
+    "alarms",
+    "webRequest",
+    "webRequestBlocking",
+    "https://www.linkedin.com/*",
+    "https://jltkerig.github.io/web-job-scraper/*"
+  ],
+  "background": {
+    "scripts": ["sites/linkedin-parse.js", "background.js"],
+    "persistent": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": ["sites/linkedin-parse.js", "content/linkedin.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_action": {
+    "default_icon": "icons/icon.svg",
+    "default_title": "Web Job Scraper",
+    "default_popup": "popup/popup.html"
+  }
+}

@@ -1,0 +1,7 @@
+# Build output (release.ps1 copies the newest build into docs\)
+dist/
+
+# Captured jobs and import records: personal data, never uploaded
+searches/
+
+node_modules/
