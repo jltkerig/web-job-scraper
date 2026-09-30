@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Web Job Scraper</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="../icons/icon.svg" alt="" width="22" height="22">
+    <h1>Web Job Scraper</h1>
+    <span id="version" class="version"></span>
+  </header>
+  <main>
+    <section id="sites"></section>
+    <div class="actions">
+      <button id="save-now" type="button">Save now</button>
+      <button id="check-update" type="button">Check for updates</button>
+    </div>
+    <section id="needs-look">
+      <h2>Needs a look <span id="needs-count"></span></h2>
+      <p class="hint">These jobs had no location on their card. Open one to capture its full details.</p>
+      <ul id="needs-list"></ul>
+    </section>
+    <div class="actions">
+      <button id="save-page" type="button" title="Saves this LinkedIn page to Downloads\web-job-scraper\debug so capture can be fixed">Save this page for fixing</button>
+    </div>
+    <p id="message" role="status"></p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

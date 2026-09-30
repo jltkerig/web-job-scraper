@@ -1,0 +1,13 @@
+{
+    "addons":  {
+                   "web-job-scraper@jamie.local":  {
+                                                       "updates":  [
+                                                                       {
+                                                                           "update_hash":  "sha256:ca078af6bf2f484adb62f82b567262397a9a460a485a4b57b24343dce8d81353",
+                                                                           "version":  "0.1.7",
+                                                                           "update_link":  "https://jltkerig.github.io/web-job-scraper/web-job-scraper-v0.1.7.xpi"
+                                                                       }
+                                                                   ]
+                                                   }
+               }
+}
