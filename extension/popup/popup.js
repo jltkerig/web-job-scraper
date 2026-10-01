@@ -55,6 +55,18 @@ function show(result) {
         dismiss,
       ]));
     }
+    if (info.noDetails) {
+      const dismiss = el("button", { type: "button", textContent: "Dismiss" });
+      dismiss.addEventListener("click", () => send({ type: "clear-warning", site }).then(show));
+      const saved = info.noDetails.saved
+        ? `A copy of the page was saved automatically to Downloads\\${info.noDetails.saved.replaceAll("/", "\\")} so this can be fixed.`
+        : "Open the job again to save a copy of the page for fixing.";
+      card.append(el("div", { className: "warning" }, [
+        el("div", { textContent: `[${info.noDetails.code}] A ${info.name} job was open, but its details couldn't be read.` }),
+        el("div", { className: "hint", textContent: saved }),
+        dismiss,
+      ]));
+    }
     if (info.error) {
       card.append(el("div", { className: "warning" }, [
         el("div", { textContent: `[${info.error.code}] ${info.error.message}` }),

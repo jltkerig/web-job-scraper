@@ -96,6 +96,7 @@ Folder names use month-day-year. To use different folders, add `capture_download
 | E7002 | You were on a LinkedIn jobs page but no jobs were captured. LinkedIn has probably changed its pages. | Click **Save page for fixing** and ask for the extension to be updated. |
 | E7003 | **Save page for fixing** didn't work. | Open the LinkedIn jobs page that had the problem, then click the button again. |
 | E7004 | **Check for updates** couldn't reach the project's GitHub Pages site. | Check your internet connection, then click the button again. |
+| E7005 | A job was open, but its details (description, location) couldn't be read. LinkedIn's job pages have probably changed. | Nothing. The first time each day, a copy of the page is saved to `Downloads\web-job-scraper\debug\` by itself, ready for updating the extension. |
 
 **Job Finder import** (shown in the message after an import, and in `job_finder.log`):
 
