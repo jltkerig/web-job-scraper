@@ -24,9 +24,12 @@
   }
 }
 
+*, *::before, *::after { box-sizing: border-box; }
+
 body {
   width: 340px;
   margin: 0;
+  overflow-x: hidden; /* the panel is exactly as wide as it needs; never a sideways scrollbar */
   font: 13px/1.4 system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -108,11 +111,15 @@ button:hover { border-color: var(--accent); }
 }
 .garden canvas { width: 340px; height: 116px; image-rendering: pixelated; display: block; }
 .runs { margin: 10px 0; }
-.run-add { display: flex; gap: 6px; margin-top: 6px; }
-.run-add input { flex: 1; min-width: 0; font: inherit; }
+/* The date-and-time box gets its own line (Firefox draws it wide), with the buttons under it, so nothing makes the
+   panel wider than it is. */
+.run-add { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.run-add input { flex: 1 1 100%; min-width: 0; max-width: 100%; box-sizing: border-box; font: inherit; }
 #run-list { list-style: none; margin: 6px 0 0; padding: 0; }
 #run-list li { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-top: 1px solid var(--line); }
-#run-list .when { flex: 1; }
+#run-list .when { flex: 1; min-width: 0; }
+/* Long words (file paths in messages) wrap instead of widening the panel. */
+#message, .warning, .hint, #run-list .detail, #needs-list li { overflow-wrap: anywhere; }
 #run-list .detail { display: block; color: var(--muted); font-size: 12px; }
 #run-list button { padding: 0 6px; }
 .tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 9px; white-space: nowrap; }
