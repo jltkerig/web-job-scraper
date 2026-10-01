@@ -105,11 +105,11 @@ button:hover { border-color: var(--accent); }
 
 .garden {
   position: relative;
-  height: 140px;
+  height: 116px;
   border-bottom: 1px solid var(--line);
   background: linear-gradient(var(--sky), var(--sky) 88%, var(--grass) 88%);
 }
-.garden canvas { width: 340px; height: 140px; image-rendering: pixelated; display: block; }
+.garden canvas { width: 340px; height: 116px; image-rendering: pixelated; display: block; }
 .runs { margin: 10px 0; }
 /* The date-and-time box gets its own line (Firefox draws it wide), with the buttons under it, so nothing makes the
    panel wider than it is. */

@@ -37,14 +37,11 @@
       this.width = options.width;
       this.height = options.height;
       this.scale = options.scale || 2;
-      // The fox has its own pixel size (it is drawn twice as finely as the flowers); by default it matches a 32-pixel
-      // fox at the garden scale.
-      this.foxScale = options.foxScale || (this.scale * 32) / S.FOX_SIZE;
       this.panel = Boolean(options.panel);
       this.jobs = [];
       this.flowers = [];
       this.popups = []; // "+1" and "z" texts floating up
-      this.x = this.width - this.foxPx() - 8;
+      this.x = this.width - S.FOX_SIZE * this.scale - 8;
       this.facingLeft = true;
       this.speed = 1;
       this.reduced = false;
@@ -66,7 +63,7 @@
     setFlowers(jobs) {
       this.jobs = jobs;
       const gap = FLOWER_GAP * this.scale;
-      const room = Math.max(0, Math.floor((this.width - this.foxPx() - 16) / gap));
+      const room = Math.max(0, Math.floor((this.width - S.FOX_SIZE * this.scale - 16) / gap));
       this.flowers = jobs.slice(0, Math.min(room, MAX_FLOWERS)).reverse()
         .map((job, i) => ({ job, ...flowerLook(job), x: 8 + i * gap }));
       if (!this.flowers.length && !["sleep", "stretch", "pounce"].includes(this.state)) this.nextIdle();
@@ -75,7 +72,7 @@
     // The strip follows the window's width.
     resize(width) {
       this.width = width;
-      const span = Math.max(0, width - this.foxPx());
+      const span = Math.max(0, width - S.FOX_SIZE * this.scale);
       this.x = Math.min(this.x, span);
       if (typeof this.target === "number") this.target = Math.min(this.target, span);
       this.setFlowers(this.jobs);
@@ -92,7 +89,7 @@
 
     captured(count) {
       if (this.reduced) return;
-      this.popups.push({ text: `+${count}`, x: this.foxCenter(), y: this.groundY() - (this.foxPx() + 3 * this.scale),
+      this.popups.push({ text: `+${count}`, x: this.foxCenter(), y: this.groundY() - (S.FOX_SIZE + 3) * this.scale,
         born: performance.now() });
       if (this.state === "sleep") {
         this.setState("stretch", 700 / this.speed, { after: () => this.setState("pounce", 900 / this.speed) });
@@ -123,7 +120,7 @@
       const roll = Math.random();
       if (roll < naps) return this.setState("sleep", hold * 1.5);
       if (this.panel || roll < naps + 0.3) return this.setState("sit", hold);
-      const span = this.width - this.foxPx();
+      const span = this.width - S.FOX_SIZE * this.scale;
       return this.setState("walk", Infinity, { target: rand(0, span), after: () => this.setState("sit", rand(6000, 20000) / this.speed) });
     }
 
@@ -214,17 +211,12 @@
       return this.height - 4;
     }
 
-    // How many screen pixels wide (and tall) the fox is.
-    foxPx() {
-      return S.FOX_SIZE * this.foxScale;
-    }
-
     foxCenter() {
-      return this.x + this.foxPx() / 2;
+      return this.x + (S.FOX_SIZE * this.scale) / 2;
     }
 
     foxBox() {
-      const size = this.foxPx();
+      const size = S.FOX_SIZE * this.scale;
       return { x: this.x, y: this.groundY() - size, w: size, h: size };
     }
 
@@ -247,8 +239,8 @@
           if (part < 0.33) return { frame: S.FOX.crouch };
           if (part < 0.75) {
             // The jump stays inside the canvas, so the ears never get cut off.
-            const room = Math.max(0, this.height - 4 - this.foxPx());
-            return { frame: S.FOX.leap, lift: Math.sin(((part - 0.33) / 0.42) * Math.PI) * Math.min(16 * this.foxScale, room) };
+            const room = Math.max(0, this.height - 4 - S.FOX_SIZE * this.scale);
+            return { frame: S.FOX.leap, lift: Math.sin(((part - 0.33) / 0.42) * Math.PI) * Math.min(8 * this.scale, room) };
           }
           return { frame: S.FOX.stand };
         }
@@ -266,8 +258,8 @@
         S.draw(ctx, flower.frame, flower.x, this.groundY() - (fh - 1) * this.scale, this.scale, false, fw, flower.colors);
       }
       const { frame, lift = 0 } = this.pose(now);
-      const size = this.foxPx();
-      S.draw(ctx, frame, this.x, this.groundY() - size - lift, this.foxScale, this.facingLeft, S.FOX_SIZE);
+      const size = S.FOX_SIZE * this.scale;
+      S.draw(ctx, frame, this.x, this.groundY() - size - lift, this.scale, this.facingLeft, S.FOX_SIZE);
       if (this.bee) {
         const bob = Math.sin(now / 180) * 1.5 * this.scale;
         S.draw(ctx, S.BEE[Math.floor(now / 80) % 2], this.bee.x, this.bee.y + bob, this.scale, this.bee.facingLeft,
@@ -287,7 +279,7 @@
         ctx.globalAlpha = 1 - cycle;
         ctx.fillStyle = "#5b6470";
         const side = this.facingLeft ? -1 : 1;
-        ctx.fillText("z", this.foxCenter() + side * 20 * this.foxScale + cycle * 6 * side, this.groundY() - 32 * this.foxScale - cycle * 12);
+        ctx.fillText("z", this.foxCenter() + side * 10 * this.scale + cycle * 6 * side, this.groundY() - 16 * this.scale - cycle * 12);
       }
       ctx.globalAlpha = 1;
     }
