@@ -16,6 +16,9 @@
     Y: "#ffd84a", // sparkle
     w: "#8a6a3a", // wilted stem
     v: "#8d89a8", // wilted petals
+    k: "#1f3a1a", // flower outline, so flowers show on a white page
+    E: "#7cbf5a", // grass
+    e: "#5a9e3e", // grass shade
   };
 
   // ---------- fox parts (facing right; the frame is 32 x 32, ground at row 30) ----------
@@ -243,11 +246,30 @@
     }
   }
 
-  const FLOWER_FRAMES = {};
-  for (const [name, grid] of Object.entries(FLOWERS)) {
-    FLOWER_FRAMES[name] = new Map();
-    stamp(FLOWER_FRAMES[name], grid, 0, 0);
+  // A one-pixel dark outline around every coloured pixel (sparkles stay loose), so thin stems and pale petals stand
+  // out on any page. The flower moves one pixel in, making each frame 11 x 15.
+  function outlined(grid) {
+    const frame = new Map();
+    stamp(frame, grid, 1, 1);
+    const ring = new Map();
+    for (const [key, ch] of frame) {
+      if (ch === "Y") continue;
+      const [x, y] = key.split(",").map(Number);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const near = `${x + dx},${y + dy}`;
+        if (!frame.has(near) && y + dy <= 14) ring.set(near, "k");
+      }
+    }
+    for (const [key, ch] of ring) frame.set(key, ch);
+    return frame;
   }
 
-  root.PetSprites = { PALETTE, FOX, FLOWERS: FLOWER_FRAMES, FLOWER_SIZE: [9, 14], FOX_SIZE: 32, draw };
+  const FLOWER_FRAMES = {};
+  for (const [name, grid] of Object.entries(FLOWERS)) FLOWER_FRAMES[name] = outlined(grid);
+
+  // A tuft of grass, 6 x 3, repeated along the ground.
+  const GRASS = new Map();
+  stamp(GRASS, ["..E..E", ".EeEEe", "eeeeee"], 0, 0);
+
+  root.PetSprites = { PALETTE, FOX, FLOWERS: FLOWER_FRAMES, FLOWER_SIZE: [11, 15], GRASS, FOX_SIZE: 32, draw };
 })(typeof globalThis !== "undefined" ? globalThis : this);
