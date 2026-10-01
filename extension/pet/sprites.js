@@ -105,17 +105,17 @@
       "....g....",
     ],
     bloom: [
-      "....g....",
-      "....gg...",
-      "....g.BB.",
-      "....g.BBb",
-      "....g..B.",
-      "..BBg....",
-      ".bBBg....",
-      "..B.g....",
-      "....g.BB.",
-      "....g.BBb",
-      ".G..g..B.",
+      "...g.....",
+      "...g.BBB.",
+      "...ggBBBb",
+      "...g..bB.",
+      ".BBBg....",
+      "BBBbg....",
+      ".Bb.g....",
+      "....gBBB.",
+      "....gBBBb",
+      "....g.bB.",
+      ".G..g....",
       "..G.g.G..",
       "...GgG...",
       "....g....",
@@ -236,11 +236,22 @@
     leap: stand({ walk: 0, tail: "UP", rise: 4 }),
   };
 
-  // Draws a frame onto a canvas context at (x, y) in canvas pixels. flip mirrors it to face left.
-  function draw(ctx, frame, x, y, scale, flip = false, width = 32) {
+  // Petal colours for flowers: [petal, highlight] replacing the bluebell's B and b.
+  const PETALS = [
+    ["#4f6fd9", "#9fb2f5"], // blue
+    ["#8a4fd9", "#c9a6f7"], // violet
+    ["#e0559b", "#f7a8cf"], // pink
+    ["#e04848", "#f7a0a0"], // red
+    ["#e8a821", "#f7dc7a"], // gold
+    ["#22a094", "#8be0d6"], // teal
+  ];
+
+  // Draws a frame onto a canvas context at (x, y) in canvas pixels. flip mirrors it to face left; colors replaces
+  // palette letters (a flower's petal colours).
+  function draw(ctx, frame, x, y, scale, flip = false, width = 32, colors = null) {
     for (const [key, ch] of frame) {
       const [px, py] = key.split(",").map(Number);
-      ctx.fillStyle = PALETTE[ch];
+      ctx.fillStyle = (colors && colors[ch]) || PALETTE[ch];
       const fx = flip ? width - 1 - px : px;
       ctx.fillRect(Math.round(x + fx * scale), Math.round(y + py * scale), scale, scale);
     }
@@ -271,5 +282,5 @@
   const GRASS = new Map();
   stamp(GRASS, ["..E..E", ".EeEEe", "eeeeee"], 0, 0);
 
-  root.PetSprites = { PALETTE, FOX, FLOWERS: FLOWER_FRAMES, FLOWER_SIZE: [11, 15], GRASS, FOX_SIZE: 32, draw };
+  root.PetSprites = { PALETTE, PETALS, FOX, FLOWERS: FLOWER_FRAMES, FLOWER_SIZE: [11, 15], GRASS, FOX_SIZE: 32, draw };
 })(typeof globalThis !== "undefined" ? globalThis : this);

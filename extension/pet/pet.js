@@ -17,6 +17,15 @@
     return hour >= 22 || hour < 6;
   }
 
+  // A flower's petal colours, the same every time for the same job.
+  function petals(job) {
+    const text = String(job.key || job.url || job.title || "");
+    let hash = 0;
+    for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+    const [petal, light] = S.PETALS[hash % S.PETALS.length];
+    return { B: petal, b: light };
+  }
+
   // Which flower a job grows into.
   function flowerStage(job) {
     if (job.closed) return "wilt";
@@ -57,7 +66,7 @@
       const gap = FLOWER_GAP * this.scale;
       const room = Math.floor((this.width - S.FOX_SIZE * this.scale - 16) / gap);
       this.flowers = jobs.slice(0, Math.max(1, Math.min(STRIP_FLOWERS, room))).reverse()
-        .map((job, i) => ({ job, stage: flowerStage(job), x: 8 + i * gap }));
+        .map((job, i) => ({ job, stage: flowerStage(job), colors: petals(job), x: 8 + i * gap }));
     }
 
     setState(name, duration, extra = {}) {
@@ -183,7 +192,8 @@
       for (let x = 0; x < this.width; x += 6 * this.scale) S.draw(ctx, S.GRASS, x, this.groundY() - 2 * this.scale, this.scale);
       const [fw, fh] = S.FLOWER_SIZE;
       for (const flower of this.flowers) {
-        S.draw(ctx, S.FLOWERS[flower.stage], flower.x, this.groundY() - (fh - 1) * this.scale, this.scale, false, fw);
+        S.draw(ctx, S.FLOWERS[flower.stage], flower.x, this.groundY() - (fh - 1) * this.scale, this.scale, false, fw,
+          flower.colors);
       }
       const { frame, lift = 0 } = this.pose(now);
       const size = S.FOX_SIZE * this.scale;
