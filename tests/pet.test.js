@@ -16,10 +16,10 @@ function waiting(count) {
   return Array.from({ length: count }, (_, i) => ({ key: `linkedin:${i}`, title: `job ${i}` }));
 }
 
-test("the garden fills the width with the newest flower on the right, leaving room for the fox", () => {
+test("the garden shows at most 10 flowers, newest on the right, leaving room for the fox", () => {
   const pet = fox();
   pet.setFlowers(waiting(200));
-  assert.ok(pet.flowers.length > 20, `only ${pet.flowers.length} flowers on a wide strip`);
+  assert.strictEqual(pet.flowers.length, 10);
   const last = pet.flowers[pet.flowers.length - 1];
   assert.strictEqual(last.job.title, "job 0");
   assert.ok(last.x + 11 * 3 <= 1200 - FOX_WIDTH, "flowers run into the fox's corner");
@@ -29,8 +29,9 @@ test("a narrow window shows fewer flowers, and resizing lays them out again", ()
   const pet = fox({ width: 340 });
   pet.setFlowers(waiting(50));
   const narrow = pet.flowers.length;
+  assert.ok(narrow < 10);
   pet.resize(1200);
-  assert.ok(pet.flowers.length > narrow);
+  assert.strictEqual(pet.flowers.length, 10);
   pet.resize(200);
   assert.ok(pet.x <= 200 - FOX_WIDTH + 1e-9);
 });

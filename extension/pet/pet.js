@@ -7,6 +7,7 @@
   const S = root.PetSprites;
   const SPEEDS = { calm: 0.6, normal: 1, playful: 1.6 };
   const FLOWER_GAP = 12; // sprite pixels from one flower to the next (times the scale on the canvas)
+  const MAX_FLOWERS = 10; // the newest 10 jobs still to collect; more was too busy
 
   function rand(min, max) {
     return min + Math.random() * (max - min);
@@ -52,13 +53,13 @@
       if (this.reduced && this.state !== "sit") this.setState("sit", Infinity);
     }
 
-    // The jobs still waiting to be collected, newest first. As many flowers as fit, newest on the right, leaving
-    // room at the right end for the fox. When the garden empties, the fox settles down to sleep.
+    // The jobs still waiting to be collected, newest first. Up to 10 flowers (fewer if the canvas is narrow), newest
+    // on the right, leaving room at the right end for the fox. When the garden empties, the fox settles down to sleep.
     setFlowers(jobs) {
       this.jobs = jobs;
       const gap = FLOWER_GAP * this.scale;
       const room = Math.max(0, Math.floor((this.width - S.FOX_SIZE * this.scale - 16) / gap));
-      this.flowers = jobs.slice(0, room).reverse().map((job, i) => ({ job, colors: petals(job), x: 8 + i * gap }));
+      this.flowers = jobs.slice(0, Math.min(room, MAX_FLOWERS)).reverse().map((job, i) => ({ job, colors: petals(job), x: 8 + i * gap }));
       if (!this.flowers.length && !["sleep", "stretch", "pounce"].includes(this.state)) this.nextIdle();
     }
 
