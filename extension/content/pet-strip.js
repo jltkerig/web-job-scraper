@@ -8,7 +8,7 @@
   if (window.top !== window) return;
 
   const SITE = "linkedin";
-  const HEIGHT = 152;
+  const HEIGHT = 128;
   const SCALE = 3;
   const BADGE = 48;
   const STRIP_CSS = `position:fixed;z-index:2147483000;pointer-events:none;left:0;right:0;bottom:0;height:${HEIGHT}px;`;
@@ -85,7 +85,7 @@
       .minimize:hover, .badge:hover { background: #fff; }
       .badge { position: absolute; inset: 0; padding: 0; border-radius: 50%; border: 2px solid #e87a2a;
         background: #fff7ee; box-shadow: 0 2px 8px rgba(0, 0, 0, .2); display: grid; place-items: center; }
-      .badge canvas { width: 40px; height: 40px; image-rendering: pixelated; }
+      .badge canvas { width: 36px; height: 36px; image-rendering: pixelated; }
       [hidden] { display: none !important; }`;
     canvas = document.createElement("canvas");
     canvas.className = "strip";
@@ -94,15 +94,15 @@
     minimize = button("minimize", "Minimize the fox", "–");
     badge = button("badge", "Show the fox");
     const face = document.createElement("canvas");
-    face.width = 64;
-    face.height = 64;
-    globalThis.PetSprites.draw(face.getContext("2d"), globalThis.PetSprites.FOX.sit, 0, 0, 1, true, globalThis.PetSprites.FOX_SIZE);
+    face.width = 32;
+    face.height = 32;
+    globalThis.PetSprites.draw(face.getContext("2d"), globalThis.PetSprites.FOX.sit, 0, 0, 1, true);
     badge.append(face);
     shadow.append(style, canvas, foxSpot, minimize, badge);
     ctx = canvas.getContext("2d");
     const width = stripWidth();
     sizeCanvas(width);
-    pet = new globalThis.Pet.Pet({ width, height: HEIGHT, scale: SCALE, foxScale: 2, speed: settings.speed, reduced: reducedMotion.matches });
+    pet = new globalThis.Pet.Pet({ width, height: HEIGHT, scale: SCALE, speed: settings.speed, reduced: reducedMotion.matches });
     pet.setFlowers(garden);
     // The fox is the only thing in the strip to click: it wakes up, or hops.
     foxSpot.addEventListener("click", () => pet.clicked());

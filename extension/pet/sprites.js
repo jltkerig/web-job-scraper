@@ -10,8 +10,6 @@
     C: "#f7e7c9", // cream
     W: "#ffffff", // eye shine
     P: "#f59aa6", // pink: inner ears, blush
-    L: "#f6a25a", // light orange: the top of the fur
-    c: "#e6cfa6", // shaded cream
     G: "#4a9b3a", // leaf green
     g: "#2f6b26", // stem green
     B: "#4f6fd9", // bluebell
@@ -27,31 +25,24 @@
 
   // ---------- fox parts (facing right; the frame is 32 x 32, ground at row 30) ----------
 
-  // The head is drawn for the 64 x 64 fox directly (18 x 16): pointed ears with pink insides, an almond eye with a
-  // shine, a blush, a cream muzzle and a black nose. Closed (blinking, sleeping), the eye is a happy curve.
-  const HEAD_64 = [
-    "..KK....KK........",
-    ".KPK...KPK........",
-    ".KPPK.KPPK........",
-    "KOPPOKOPPOK.......",
-    "KOOOOOOOOOOK......",
-    "KOOOOOOOOOOOK.....",
-    "KOOOOOOKKOOOOK....",
-    "KOOOOOOKWKOOOOK...",
-    "KOOOOOOKKKOOOOOKK.",
-    "KOOOOOOOOOOOCCCCKK",
-    "KCOOOOOOPPCCCCCCKK",
-    "KCCOOOOOCCCCCCCK..",
-    ".KCCOOOCCCCCKKK...",
-    ".KCCCOOCCCCK......",
-    "..KCCCCCCKK.......",
-    "...KKKKKK.........",
+  // Pink inner ears, a big shiny eye, a blush on the cheek and a little two-pixel nose.
+  const HEAD = [
+    "..K...K.....",
+    ".KPK.KPK....",
+    ".KPPKKPPK...",
+    "KOOOOOOOOK..",
+    "KOOOOOKWOOK.",
+    "KOOOOOKKOOOK",
+    "KOOOOOOPPCCK",
+    "KCOOOOOOCCCK",
+    ".KCCOOOCCCK.",
+    "..KCCCCCCK..",
+    "...KKKKKK...",
   ];
-  const EYE_64_CLOSED = [
-    [7, 6, "O"], [8, 6, "O"],
-    [7, 7, "K"], [8, 7, "K"], [9, 7, "K"],
-    [6, 8, "K"], [7, 8, "O"], [8, 8, "O"], [9, 8, "O"], [10, 8, "K"],
-  ];
+  // The eye is a 2 x 2 block at columns 6-7, rows 4-5, with a white sparkle. Closed (blinking, sleeping), it's a
+  // happy upward curve.
+  const EYE_OPEN = [[6, 4, "K"], [7, 4, "W"], [6, 5, "K"], [7, 5, "K"]];
+  const EYE_CLOSED = [[6, 4, "K"], [7, 4, "K"], [6, 5, "O"], [7, 5, "O"], [5, 5, "K"], [8, 5, "K"]];
 
   const BODY = [
     "....KKKKKKKKK...",
@@ -263,7 +254,8 @@
     });
     stamp(frame, BODY, 6, 13 + bob - rise);
     dots(frame, NECK, 0, bob - rise);
-    frame.head = [19, 4 + bob - rise, eyes];
+    stamp(frame, HEAD, 19, 4 + bob - rise);
+    dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 19, 4 + bob - rise);
     return frame;
   }
 
@@ -277,7 +269,8 @@
     }
     for (let i = 0; i < 4; i += 1) frame.set(`${17 + i},29`, "K");
     const headY = alert ? 9 : 10;
-    frame.head = [12, headY, eyes];
+    stamp(frame, HEAD, 12, headY);
+    dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 12, headY);
     return frame;
   }
 
@@ -287,7 +280,8 @@
     stamp(frame, TAIL_DOWN, 0, 25);
     stamp(frame, BODY, 6, 22 - breathe);
     for (let i = 0; i < 5; i += 1) frame.set(`${21 + i},29`, "K");
-    frame.head = [18, 18, eyes];
+    stamp(frame, HEAD, 18, 18);
+    dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 18, 18);
     return frame;
   }
 
@@ -299,70 +293,16 @@
   }
 
   // Every pose the fox uses, built once.
-  // ---------- the detailed fox: each 32 x 32 pose doubled to 64 x 64, then shaded ----------
-
-  // Scale2x (EPX): doubles a frame and rounds off the staircase on diagonal edges, so the bigger fox is smooth.
-  function scale2x(frame, size) {
-    const at = (x, y) => frame.get(`${x},${y}`) || ".";
-    const out = new Map();
-    const put = (x, y, ch) => {
-      if (ch !== ".") out.set(`${x},${y}`, ch);
-    };
-    for (let y = 0; y < size; y += 1) {
-      for (let x = 0; x < size; x += 1) {
-        const p = at(x, y);
-        const a = at(x, y - 1);
-        const b = at(x + 1, y);
-        const c = at(x - 1, y);
-        const d = at(x, y + 1);
-        put(2 * x, 2 * y, c === a && c !== d && a !== b ? a : p);
-        put(2 * x + 1, 2 * y, a === b && a !== c && b !== d ? b : p);
-        put(2 * x, 2 * y + 1, d === c && d !== b && c !== a ? c : p);
-        put(2 * x + 1, 2 * y + 1, b === d && b !== a && d !== c ? d : p);
-      }
-    }
-    return out;
-  }
-
-  // Fur shading: a light band along the top of orange fur, a darker band underneath, a soft shadow on the cream.
-  function shade(frame) {
-    const at = (x, y) => frame.get(`${x},${y}`) || ".";
-    const edge = (ch) => ch === "K" || ch === ".";
-    const out = new Map(frame);
-    for (const [key, ch] of frame) {
-      const [x, y] = key.split(",").map(Number);
-      if (ch === "O") {
-        if (edge(at(x, y - 1))) out.set(key, "L");
-        else if (edge(at(x, y + 1)) || edge(at(x, y + 2))) out.set(key, "D");
-      } else if (ch === "C" && (edge(at(x, y + 1)) || edge(at(x, y + 2)))) {
-        out.set(key, "c");
-      }
-    }
-    return out;
-  }
-
-  // The head is drawn at full detail rather than doubled (doubling made it huge and lumpy). It's smaller than the
-  // doubled one, its bottom-back corner where the old head's was, so it still sits on the neck.
-  function detailed(frame) {
-    const out = scale2x(frame, 32);
-    const [hx, hy, eyes] = frame.head;
-    const x = 2 * hx;
-    const y = 2 * hy + 22 - HEAD_64.length;
-    stamp(out, HEAD_64, x, y);
-    if (!eyes) dots(out, EYE_64_CLOSED, x, y);
-    return shade(out);
-  }
-
   const FOX = {
-    stand: detailed(stand()),
-    standBlink: detailed(stand({ eyes: false })),
-    walk: [0, 1, 2, 3].map((walk) => detailed(stand({ walk, bob: walk % 2 === 1 ? 1 : 0 }))),
-    sit: detailed(sit()),
-    sitBlink: detailed(sit({ eyes: false })),
-    alert: detailed(sit({ alert: true })),
-    sleep: [detailed(lie()), detailed(lie({ breathe: 1 }))],
-    crouch: detailed(crouch()),
-    leap: detailed(stand({ walk: 0, tail: "UP", rise: 4 })),
+    stand: stand(),
+    standBlink: stand({ eyes: false }),
+    walk: [0, 1, 2, 3].map((walk) => stand({ walk, bob: walk % 2 === 1 ? 1 : 0 })),
+    sit: sit(),
+    sitBlink: sit({ eyes: false }),
+    alert: sit({ alert: true }),
+    sleep: [lie(), lie({ breathe: 1 })],
+    crouch: crouch(),
+    leap: stand({ walk: 0, tail: "UP", rise: 4 }),
   };
 
   // Petal colours, [petal, lip] replacing B and b, for each kind of flower.
@@ -429,6 +369,6 @@
   stamp(GRASS, ["..E..E", ".EeEEe", "eeeeee"], 0, 0);
 
   root.PetSprites = {
-    PALETTE, FOX, FLOWERS, FLOWER_WIDTH: 11, BEE: BEE_FRAMES, BEE_SIZE: [9, 6], GRASS, FOX_SIZE: 64, draw,
+    PALETTE, FOX, FLOWERS, FLOWER_WIDTH: 11, BEE: BEE_FRAMES, BEE_SIZE: [9, 6], GRASS, FOX_SIZE: 32, draw,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
