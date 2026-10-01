@@ -143,7 +143,7 @@
     flowerBoxes() {
       const [w, h] = S.FLOWER_SIZE;
       return this.flowers.map((flower) => ({
-        x: flower.x, y: this.groundY() - h * this.scale, w: w * this.scale, h: h * this.scale, job: flower.job,
+        x: flower.x, y: this.groundY() - (h - 1) * this.scale, w: w * this.scale, h: h * this.scale, job: flower.job,
       }));
     }
 
@@ -176,9 +176,11 @@
 
     draw(ctx, now) {
       ctx.clearRect(0, 0, this.width, this.height);
-      const [, fh] = S.FLOWER_SIZE;
+      // Grass along the bottom, so the garden has ground to stand on.
+      for (let x = 0; x < this.width; x += 6 * this.scale) S.draw(ctx, S.GRASS, x, this.groundY() - 2 * this.scale, this.scale);
+      const [fw, fh] = S.FLOWER_SIZE;
       for (const flower of this.flowers) {
-        S.draw(ctx, S.FLOWERS[flower.stage], flower.x, this.groundY() - fh * this.scale, this.scale, false, 9);
+        S.draw(ctx, S.FLOWERS[flower.stage], flower.x, this.groundY() - (fh - 1) * this.scale, this.scale, false, fw);
       }
       const { frame, lift = 0 } = this.pose(now);
       const size = S.FOX_SIZE * this.scale;
