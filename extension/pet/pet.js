@@ -5,7 +5,7 @@
 
   const S = root.PetSprites;
   const SPEEDS = { calm: 0.6, normal: 1, playful: 1.6 };
-  const FLOWER_GAP = 24; // canvas px from one flower to the next
+  const FLOWER_GAP = 12; // sprite pixels from one flower to the next (times the scale on the canvas)
   const STRIP_FLOWERS = 7;
 
   function rand(min, max) {
@@ -51,10 +51,13 @@
       if (this.reduced && this.state !== "sit") this.setState("sit", Infinity);
     }
 
-    // jobs come newest first; the newest flower is drawn on the right.
+    // jobs come newest first; the newest flower is drawn on the right. Up to 7 show, fewer when the canvas is narrow,
+    // so they always leave room for the fox.
     setFlowers(jobs) {
-      this.flowers = jobs.slice(0, STRIP_FLOWERS).reverse()
-        .map((job, i) => ({ job, stage: flowerStage(job), x: 8 + i * FLOWER_GAP }));
+      const gap = FLOWER_GAP * this.scale;
+      const room = Math.floor((this.width - S.FOX_SIZE * this.scale - 16) / gap);
+      this.flowers = jobs.slice(0, Math.max(1, Math.min(STRIP_FLOWERS, room))).reverse()
+        .map((job, i) => ({ job, stage: flowerStage(job), x: 8 + i * gap }));
     }
 
     setState(name, duration, extra = {}) {

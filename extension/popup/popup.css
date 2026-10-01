@@ -102,11 +102,11 @@ button:hover { border-color: var(--accent); }
 
 .garden {
   position: relative;
-  height: 80px;
+  height: 116px;
   border-bottom: 1px solid var(--line);
   background: linear-gradient(var(--sky), var(--sky) 88%, var(--grass) 88%);
 }
-.garden canvas { width: 340px; height: 80px; image-rendering: pixelated; display: block; cursor: pointer; }
+.garden canvas { width: 340px; height: 116px; image-rendering: pixelated; display: block; cursor: pointer; }
 .flower-info {
   position: absolute;
   left: 8px;
