@@ -9,6 +9,7 @@
     D: "#b9561b", // dark orange shading
     C: "#f7e7c9", // cream
     W: "#ffffff", // eye shine
+    P: "#f59aa6", // pink: inner ears, blush
     G: "#4a9b3a", // leaf green
     g: "#2f6b26", // stem green
     B: "#4f6fd9", // bluebell
@@ -24,22 +25,24 @@
 
   // ---------- fox parts (facing right; the frame is 32 x 32, ground at row 30) ----------
 
+  // Pink inner ears, a big shiny eye, a blush on the cheek and a little two-pixel nose.
   const HEAD = [
-    ".K...K......",
-    ".KK..KK.....",
-    ".KOK.KOK....",
-    "KOOOKOOOK...",
-    "KOOOOOKOOK..",
-    "KOOOOOKOOOK.",
-    "KOOOOOOOOOOK",
+    "..K...K.....",
+    ".KPK.KPK....",
+    ".KPPKKPPK...",
+    "KOOOOOOOOK..",
+    "KOOOOOKWOOK.",
+    "KOOOOOKKOOOK",
+    "KOOOOOOPPCCK",
     "KCOOOOOOCCCK",
     ".KCCOOOCCCK.",
     "..KCCCCCCK..",
     "...KKKKKK...",
   ];
-  // The eye is the two K pixels at column 6, rows 4-5; closed, it becomes a short line on row 5.
-  const EYE_OPEN = [[6, 4, "K"], [6, 5, "K"]];
-  const EYE_CLOSED = [[6, 4, "O"], [5, 5, "K"], [6, 5, "K"], [7, 5, "K"]];
+  // The eye is a 2 x 2 block at columns 6-7, rows 4-5, with a white sparkle. Closed (blinking, sleeping), it's a
+  // happy upward curve.
+  const EYE_OPEN = [[6, 4, "K"], [7, 4, "W"], [6, 5, "K"], [7, 5, "K"]];
+  const EYE_CLOSED = [[6, 4, "K"], [7, 4, "K"], [6, 5, "O"], [7, 5, "O"], [5, 5, "K"], [8, 5, "K"]];
 
   const BODY = [
     "....KKKKKKKKK...",
