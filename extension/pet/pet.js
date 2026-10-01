@@ -18,13 +18,16 @@
     return hour >= 22 || hour < 6;
   }
 
-  // A flower's petal colours, the same every time for the same job.
-  function petals(job) {
+  // A job's flower, the same every time for the same job: a foxglove or a bluebell in one of six colours, and now
+  // and then (about one in twelve) a really tall foxglove.
+  function flowerLook(job) {
     const text = String(job.key || job.url || job.title || "");
     let hash = 0;
     for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
-    const [petal, light] = S.PETALS[hash % S.PETALS.length];
-    return { B: petal, b: light };
+    const kind = hash % 12 === 0 ? "giant" : (hash >>> 4) % 2 ? "bluebell" : "foxglove";
+    const look = S.FLOWERS[kind];
+    const [petal, light] = look.colours[(hash >>> 8) % look.colours.length];
+    return { kind, frame: look.frame, size: look.size, colors: { B: petal, b: light } };
   }
 
   class Pet {
@@ -61,7 +64,8 @@
       this.jobs = jobs;
       const gap = FLOWER_GAP * this.scale;
       const room = Math.max(0, Math.floor((this.width - S.FOX_SIZE * this.scale - 16) / gap));
-      this.flowers = jobs.slice(0, Math.min(room, MAX_FLOWERS)).reverse().map((job, i) => ({ job, colors: petals(job), x: 8 + i * gap }));
+      this.flowers = jobs.slice(0, Math.min(room, MAX_FLOWERS)).reverse()
+        .map((job, i) => ({ job, ...flowerLook(job), x: 8 + i * gap }));
       if (!this.flowers.length && !["sleep", "stretch", "pounce"].includes(this.state)) this.nextIdle();
     }
 
@@ -169,13 +173,13 @@
         bee.hoverUntil = 0;
         bee.stops.shift();
       }
-      // Next stop: a foxglove still in the garden (it may have been collected meanwhile), else off-screen.
+      // Next stop: a flower still in the garden (it may have been collected meanwhile), else off-screen.
       let target = null;
       while (bee.stops.length && !target) {
         const flower = this.flowers.find((item) => item.job.key === bee.stops[0]);
         if (flower) {
-          const [fw, fh] = S.FLOWER_SIZE;
-          target = { x: flower.x + (fw * this.scale - bw) / 2, y: this.groundY() - fh * this.scale - bh, stop: true };
+          const [fw, fh] = flower.size;
+          target = { x: flower.x + (fw * this.scale - bw) / 2, y: Math.max(0, this.groundY() - fh * this.scale - bh), stop: true };
         } else {
           bee.stops.shift();
         }
@@ -247,9 +251,9 @@
       ctx.clearRect(0, 0, this.width, this.height);
       // Grass along the bottom, so the garden has ground to stand on.
       for (let x = 0; x < this.width; x += 6 * this.scale) S.draw(ctx, S.GRASS, x, this.groundY() - 2 * this.scale, this.scale);
-      const [fw, fh] = S.FLOWER_SIZE;
       for (const flower of this.flowers) {
-        S.draw(ctx, S.FLOWER, flower.x, this.groundY() - (fh - 1) * this.scale, this.scale, false, fw, flower.colors);
+        const [fw, fh] = flower.size;
+        S.draw(ctx, flower.frame, flower.x, this.groundY() - (fh - 1) * this.scale, this.scale, false, fw, flower.colors);
       }
       const { frame, lift = 0 } = this.pose(now);
       const size = S.FOX_SIZE * this.scale;
