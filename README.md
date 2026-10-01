@@ -52,6 +52,7 @@ A pixel-art fox and its garden run along the whole bottom of LinkedIn's job page
 - **Bee:** every few minutes, while there are foxgloves, a bee flies in, visits one to three of them and buzzes off. The fox looks up when it arrives.
 - **Fox:** when there's nothing left to collect, the fox's work is done and it sleeps. A new job wakes it with a stretch and a pounce, and a **+1** floats up. While there are flowers it walks, sits and naps now and then (more often late at night), and watches with its ears up while you scroll job lists.
 - **Clicks:** clicks pass through the strip to the page. The fox is the only thing that reacts: click it to wake it or make it hop.
+- **Minimize:** when the strip gets in the way, click the **–** button at its top right. The fox shrinks to a small badge in the bottom-right corner (and stops animating). Click the badge to bring it back. This is remembered for every tab, including after Firefox restarts.
 - **Settings (panel):** show it on LinkedIn or not, and its speed (calm, normal, playful).
 - It pauses when the tab is hidden. With Windows' "reduce animations" setting on, it only sits and blinks.
 - It's drawn entirely in the extension's own code (no image files) inside a sealed-off part of the page, so LinkedIn's styles can't break it. Turning it off removes it from the page completely.
