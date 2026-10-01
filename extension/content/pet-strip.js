@@ -37,7 +37,8 @@
     host.style.cssText = "position:fixed;z-index:2147483000;pointer-events:none;width:" + WIDTH + "px;height:" + HEIGHT +
       "px;right:" + (position.right ?? 16) + "px;bottom:" + (position.bottom ?? 0) + "px;";
     const shadow = host.attachShadow({ mode: "closed" });
-    shadow.innerHTML = `<style>
+    const style = document.createElement("style");
+    style.textContent = `
       :host { all: initial; }
       canvas { position: absolute; inset: 0; width: ${WIDTH}px; height: ${HEIGHT}px; image-rendering: pixelated; pointer-events: none; }
       .hit { position: absolute; pointer-events: auto; cursor: pointer; }
@@ -53,10 +54,10 @@
         .card { background: #1f2126; color: #e8eaed; border-color: #3a3e46; }
         .card .meta, .card button { color: #a3a9b3; }
         .card a { color: #6ea0ff; }
-      }
-    </style><canvas></canvas><div class="hits"></div>`;
-    canvas = shadow.querySelector("canvas");
-    hits = shadow.querySelector(".hits");
+      }`;
+    canvas = document.createElement("canvas");
+    hits = document.createElement("div");
+    shadow.append(style, canvas, hits);
     const ratio = window.devicePixelRatio || 1;
     canvas.width = WIDTH * ratio;
     canvas.height = HEIGHT * ratio;
