@@ -27,7 +27,7 @@ function send(payload) {
 function savePage(site) {
   message.textContent = "Saving page…";
   send({ type: "save-debug", site })
-    .then((reply) => { message.textContent = `Saved to Downloads\\${reply.folder.replaceAll("/", "\\")}`; })
+    .then((reply) => { message.textContent = `Saved in your downloads folder: ${reply.folder.replaceAll("/", "\\")}`; })
     .catch((error) => { message.textContent = String(error.message || error); });
 }
 
@@ -59,7 +59,7 @@ function show(result) {
       const dismiss = el("button", { type: "button", textContent: "Dismiss" });
       dismiss.addEventListener("click", () => send({ type: "clear-warning", site }).then(show));
       const saved = info.noDetails.saved
-        ? `A copy of the page was saved automatically to Downloads\\${info.noDetails.saved.replaceAll("/", "\\")} so this can be fixed.`
+        ? `A copy of the page was saved automatically in your downloads folder (${info.noDetails.saved.replaceAll("/", "\\")}) so this can be fixed.`
         : "Open the job again to save a copy of the page for fixing.";
       card.append(el("div", { className: "warning" }, [
         el("div", { textContent: `[${info.noDetails.code}] A ${info.name} job was open, but its details couldn't be read.` }),

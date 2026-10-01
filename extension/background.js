@@ -1,5 +1,5 @@
 // Keeps every captured job, writes one jobs.json per site per day into
-// Downloads\web-job-scraper\searches\passive-mm-dd-yyyy\<site>\, and runs the capture health check.
+// web-job-scraper\searches\passive-mm-dd-yyyy\<site>\ in Firefox's downloads folder, and runs the capture health check.
 "use strict";
 
 const SITES = {
@@ -11,7 +11,7 @@ const ROOT = "web-job-scraper";
 const MAX_DEBUG_RESPONSES = 8;
 // Error codes shown in the panel (E7xxx; Job Finder's import uses E6xxx). Listed in the README.
 const ERRORS = {
-  save: "E7001", // the day's file could not be saved to Downloads
+  save: "E7001", // the day's file could not be saved to the downloads folder
   broken: "E7002", // on a jobs page, but no jobs were captured
   debug: "E7003", // "Save page for fixing" did not work
   update: "E7004", // the update check could not reach the project's GitHub Pages site
@@ -204,7 +204,7 @@ async function flush(force = false) {
         // The jobs stay in the extension and the file is tried again at the next save.
         state.errors[site] = {
           code: ERRORS.save,
-          message: `Could not save today's ${SITES[site].name} file to Downloads: ${error.message || error}`,
+          message: `Could not save today's ${SITES[site].name} file to your downloads folder: ${error.message || error}`,
           at: new Date().toISOString(),
         };
       }
@@ -338,7 +338,7 @@ function popupState() {
   };
 }
 
-// Saves a LinkedIn tab's page and recent background data to Downloads\web-job-scraper\debug\ (the active tab
+// Saves a LinkedIn tab's page and recent background data to web-job-scraper\debug\ in the downloads folder (the active tab
 // unless one is given). Returns the folder.
 async function saveDebug(site, tabId) {
   const fail = (message) => new Error(`[${ERRORS.debug}] ${message}`);
@@ -356,7 +356,7 @@ async function saveDebug(site, tabId) {
     const responses = recentResponses.get(tab.id) || [];
     await download(`${folder}/responses.json`, JSON.stringify({ url: page.url, responses }, null, 2), "application/json");
   } catch (error) {
-    throw fail(`Could not save the page to Downloads: ${error.message || error}`);
+    throw fail(`Could not save the page to your downloads folder: ${error.message || error}`);
   }
   return folder;
 }
@@ -364,8 +364,9 @@ async function saveDebug(site, tabId) {
 // ---------- updates ----------
 
 // The newest build is listed on the project's GitHub Pages site, at the manifest's update_url (the same list the gear
-// menu in about:addons reads; release.ps1 publishes it). Firefox has no call to install it directly, so a newer build
-// is opened in a tab, where Firefox asks "Add Web Job Scraper?".
+// menu in about:addons reads; release.ps1 publishes it). Firefox only installs an add-on from something the user
+// clicks on a web page (opening the .xpi from here shows a blank tab), so the site's install page is opened instead;
+// its Install button makes Firefox ask "Add Web Job Scraper?".
 function newer(a, b) {
   const pa = a.split(".").map(Number);
   const pb = b.split(".").map(Number);
@@ -389,8 +390,8 @@ async function checkForUpdate() {
   }
   if (!update || !newer(update.version, current)) return { status: "current", message: `Up to date (v${current}).` };
   await flush(true); // today's jobs are saved before the new version takes over
-  await browser.tabs.create({ url: update.update_link });
-  return { status: "update", message: `v${update.version} is ready: click Add in Firefox's prompt.` };
+  await browser.tabs.create({ url: new URL("./", manifest.browser_specific_settings.gecko.update_url).href });
+  return { status: "update", message: `v${update.version} is ready: click Install on the page that opened.` };
 }
 
 browser.runtime.onMessage.addListener((message, sender) => {

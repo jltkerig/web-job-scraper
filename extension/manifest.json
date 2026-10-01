@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Web Job Scraper",
-  "version": "0.1.8",
+  "version": "0.1.10",
   "description": "Saves the jobs you browse on LinkedIn into daily files that Job Finder imports.",
   "browser_specific_settings": {
     "gecko": {

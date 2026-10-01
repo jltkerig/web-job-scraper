@@ -19,7 +19,8 @@
   // "Applied", "Applied 3 days ago", "Application submitted" on a card or the job's page.
   const APPLIED_LINE = /^applied\b/i;
   const APPLIED_TEXT = /\bapplied\s+\d+\s+\w+\s+ago\b|\bapplication submitted\b|\byou applied\b/i;
-  const PAY_TEXT =/[$£€]\s?\d|\d\s?(?:k|K)\s?\/\s?(?:yr|year)|\/\s?(?:hr|hour|yr|year)\b/;
+  // Pay with a rate ("$78K/yr", "$38/hr - $40/hr", "$70,000 - $90,000"), not a one-off amount like a sign-on bonus.
+  const PAY_TEXT = /[$£€]\s?\d[\d,.]*\s?[Kk]?\s?\/\s?(?:yr|year|hr|hour|mo|month|wk|week)\b|[$£€]\s?\d[\d,.]*\s?[Kk]?\s?[-–]\s?[$£€]?\s?\d/;
 
   function jobUrl(id) {
     return `https://www.linkedin.com/jobs/view/${id}`;
@@ -178,12 +179,41 @@
     return finish(jobs, pageUrl);
   }
 
-  function lines(element) {
+  // The element's text, one entry per text node (LinkedIn puts each label in its own element). Repeats, such as
+  // the copies LinkedIn adds for screen readers, are dropped unless { unique: false }.
+  const SKIP_TEXT_IN = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE"]);
+
+  function lines(element, { unique = true } = {}) {
     const seen = new Set();
-    return String(element.innerText || "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line && !seen.has(line) && seen.add(line));
+    const result = [];
+    const walker = element.ownerDocument.createTreeWalker(element, 4 /* NodeFilter.SHOW_TEXT */);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.parentElement && SKIP_TEXT_IN.has(node.parentElement.tagName)) continue;
+      const line = node.nodeValue.replace(/\s+/g, " ").trim();
+      if (!line || (unique && seen.has(line))) continue;
+      seen.add(line);
+      result.push(line);
+    }
+    return result;
+  }
+
+  // LinkedIn's 2026 pages have scrambled class names and no stable ids, so everything below goes by the page's text:
+  // the "About the job" heading, the order of the lines at the top of a job, and the lines inside each job link.
+  const LOCATION_LINE = /,\s*[A-Z]{2}\b|\bremote\b|united states|metropolitan area|\barea\b|^greater\s/i;
+  const WORKPLACE_LINE = /^(on-site|onsite|remote|hybrid)$/i;
+  const POSTED_LINE = /^(?:re)?posted\b|^\d+\s+\w+\s+ago$/i;
+
+  function cleanTitle(line) {
+    return String(line || "").replace(/\s+with verification$/i, "").trim();
+  }
+
+  // The first line that looks like a place, preferring one followed by LinkedIn's "·" separator.
+  function locationIndex(list, from) {
+    const places = [];
+    for (let i = from; i < list.length; i += 1) {
+      if (LOCATION_LINE.test(list[i]) && list[i].length < 80 && !WORKPLACE_LINE.test(list[i])) places.push(i);
+    }
+    return places.find((i) => list[i + 1] === "·") ?? (places.length ? places[0] : -1);
   }
 
   // The job details pane (search/recommendation pages) or the job's own page.
@@ -191,61 +221,90 @@
     const id = idFromUrl(pageUrl);
     if (!id) return null;
     const job = blank(id);
-    const description = doc.querySelector(
-      "#job-details, [class*='jobs-description__content'], [class*='jobs-description-content'], [class*='job-details-module']");
-    let region = description;
-    if (!region) {
-      const heading = Array.from(doc.querySelectorAll("h2, h3")).find((node) => /about the job/i.test(node.innerText || ""));
-      region = heading && heading.parentElement;
+    const heading = Array.from(doc.querySelectorAll("h1, h2, h3"))
+      .find((node) => /^\s*about the job\s*$/i.test(node.textContent || ""));
+    let header = [];
+    if (heading) {
+      // The description: the nearest box around the heading that holds real text.
+      let box = heading.parentElement;
+      while (box && (box.textContent || "").trim().length < 200) box = box.parentElement;
+      if (box) {
+        const text = lines(box).filter((line) => !/^about the job$/i.test(line)).join("\n");
+        if (text.length > 150) job.description = text.slice(0, 20000);
+      }
+      // The top of the job: company, title, location, "·", "Reposted 2 weeks ago", ..., "On-site", "Applied ...".
+      let scope = heading.parentElement;
+      for (let depth = 0; scope && depth < 20; depth += 1, scope = scope.parentElement) {
+        const all = lines(scope, { unique: false });
+        const stop = all.findIndex((line) => /^about the job$/i.test(line));
+        const before = stop >= 0 ? all.slice(0, stop) : all;
+        const at = locationIndex(before, 2);
+        if (at >= 2) {
+          job.location = before[at];
+          job.title = cleanTitle(before[at - 1]);
+          job.company = before[at - 2];
+          header = before.slice(at - 2);
+          break;
+        }
+      }
     }
-    const text = region ? String(region.innerText || "").replace(/^\s*about the job\s*/i, "").trim() : "";
-    if (text.length > 150) job.description = text;
-    const titleNode = doc.querySelector(
-      "[class*='top-card__job-title'], [class*='unified-top-card__job-title'], [class*='job-title'] h1, main h1");
-    job.title = titleNode ? lines(titleNode)[0] || "" : "";
-    const pane = (titleNode && titleNode.closest("section, div[class*='top-card']")) || null;
-    if (pane) {
-      const paneLines = lines(pane).filter((line) => line !== job.title);
-      job.company = paneLines[0] || "";
-      const place = paneLines.find((line, index) => index > 0 && /,|remote|united states/i.test(line));
-      job.location = place ? place.split("·")[0].trim() : "";
-      job.salary = paneLines.find((line) => PAY_TEXT.test(line)) || "";
-      job.work_arrangement = arrangementFromText(paneLines.join(" "));
+    // A job's own page is titled "Title | Company | LinkedIn".
+    const parts = String(doc.title || "").split(" | ");
+    if (/\/jobs\/view\//.test(pageUrl) && parts.length >= 3 && /linkedin/i.test(parts[parts.length - 1])) {
+      job.title = cleanTitle(parts[0]);
+      job.company = parts[1].trim();
     }
-    const top = (pane && pane.parentElement) || doc.body;
-    const topText = String(top.innerText || "").slice(0, 5000);
-    job.closed = CLOSED_TEXT.test(topText);
-    job.applied = APPLIED_TEXT.test(topText);
+    const place = header.find((line) => WORKPLACE_LINE.test(line));
+    job.work_arrangement = place ? arrangementFromText(place) : arrangementFromText(job.location);
+    job.salary = header.find((line) => PAY_TEXT.test(line)) || "";
+    job.posted = header.find((line) => POSTED_LINE.test(line)) || "";
+    job.applied = header.some((line) => APPLIED_LINE.test(line) || APPLIED_TEXT.test(line));
+    job.closed = header.some((line) => CLOSED_TEXT.test(line));
     return job.title || job.description ? job : null;
   }
 
-  // Job cards in lists: anything linking to /jobs/view/<id>.
+  // Job cards in lists: links to /jobs/view/<id> or to a list with currentJobId=<id>. In the 2026 layout the link
+  // wraps the whole card: title, company, location, then pay, benefits, "Promoted", "Applied".
   function fromDom(doc, pageUrl) {
     const jobs = new Map();
-    for (const link of doc.querySelectorAll("a[href*='/jobs/view/']")) {
+    for (const link of doc.querySelectorAll("a[href*='/jobs/view/'], a[href*='currentJobId=']")) {
       const id = idFromUrl(link.getAttribute("href"));
       if (!id || jobs.has(id)) continue;
-      const job = blank(id);
-      job.title = lines(link)[0] || textOf(link.getAttribute("aria-label"));
-      const card = link.closest("li, [data-job-id], [data-occludable-job-id]");
-      const cardIds = card ? new Set(Array.from(card.querySelectorAll("a[href*='/jobs/view/']"),
-        (node) => idFromUrl(node.getAttribute("href")))) : new Set();
-      if (card && cardIds.size === 1) {
-        const rest = lines(card).filter((line) => line !== job.title && !line.startsWith(job.title));
-        job.company = rest[0] || "";
-        const place = rest.find((line, index) => index > 0 && /,|remote|united states|\((?:hybrid|on-site)\)/i.test(line));
-        job.location = place || "";
-        job.salary = rest.find((line) => PAY_TEXT.test(line)) || "";
-        job.applied = rest.some((line) => APPLIED_LINE.test(line));
+      // Only links into the Jobs section are job cards; others (messaging a contact "about this job") only mention it.
+      let path = "";
+      try {
+        path = new URL(link.getAttribute("href"), pageUrl).pathname;
+      } catch (error) {
+        continue;
       }
-      if (job.title) jobs.set(id, job);
+      if (!path.startsWith("/jobs")) continue;
+      let card = lines(link);
+      if (card.length < 2) {
+        // Older layout: the link holds only the title and the card is its list item.
+        const box = link.closest("li, [data-job-id], [data-occludable-job-id]");
+        const ids = box ? new Set(Array.from(box.querySelectorAll("a[href*='/jobs/view/'], a[href*='currentJobId=']"),
+          (node) => idFromUrl(node.getAttribute("href")))) : new Set();
+        if (box && ids.size === 1) card = lines(box);
+      }
+      // A lone "On-site" link (the work-place tag on a job's own page) is not a card.
+      if (card.length < 2 || WORKPLACE_LINE.test(card[0])) continue;
+      const job = blank(id);
+      job.title = cleanTitle(card[0]);
+      job.company = card[1];
+      const at = locationIndex(card, 2);
+      job.location = at >= 0 ? card[at] : "";
+      job.salary = card.find((line) => PAY_TEXT.test(line)) || "";
+      job.applied = card.some((line) => APPLIED_LINE.test(line));
+      job.closed = card.some((line) => CLOSED_TEXT.test(line));
+      jobs.set(id, job);
     }
     const detail = detailFromDom(doc, pageUrl);
     if (detail) {
       const card = jobs.get(detail.job_id);
       if (card) {
+        // The job's own header is the better source; the card only fills in what the header lacks.
         for (const field of Object.keys(detail)) {
-          if (detail[field] && (!card[field] || field === "description")) card[field] = detail[field];
+          if (detail[field]) card[field] = detail[field];
         }
       } else {
         jobs.set(detail.job_id, detail);

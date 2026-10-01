@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Web Job Scraper</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #1f2328;
+      --muted: #5b6470;
+      --line: #d9dde3;
+      --accent: #2f6fd6;
+      --accent-text: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #17191d;
+        --card: #1f2126;
+        --text: #e8eaed;
+        --muted: #a3a9b3;
+        --line: #3a3e46;
+        --accent: #6ea0ff;
+        --accent-text: #0d1117;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px 16px;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.5 system-ui, sans-serif;
+    }
+    main {
+      width: 100%;
+      max-width: 420px;
+      padding: 28px 24px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--card);
+      text-align: center;
+    }
+    img { width: 56px; height: 56px; }
+    h1 { margin: 12px 0 4px; font-size: 1.3rem; }
+    p { margin: 8px 0; color: var(--muted); }
+    .install {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 11px 22px;
+      border-radius: 7px;
+      background: var(--accent);
+      color: var(--accent-text);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .install:hover { filter: brightness(1.08); }
+    .install[hidden] { display: none; }
+    small { display: block; margin-top: 16px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="icon.svg" alt="">
+    <h1>Web Job Scraper</h1>
+    <p id="status">Looking for the newest version…</p>
+    <a id="install" class="install" href="#" hidden>Install</a>
+    <small>Firefox will ask to add the extension: click <strong>Add</strong>. If it says it blocked this site, click <strong>Allow</strong> first.</small>
+  </main>
+  <script>
+    (async () => {
+      const status = document.getElementById("status");
+      const install = document.getElementById("install");
+      try {
+        const data = await (await fetch("updates.json", { cache: "no-store" })).json();
+        const [update] = Object.values(data.addons)[0].updates;
+        install.href = update.update_link;
+        install.textContent = `Install v${update.version}`;
+        install.hidden = false;
+        status.textContent = `Version ${update.version} is the newest.`;
+      } catch (error) {
+        status.textContent = "Couldn't find the newest version. Try reloading this page.";
+      }
+    })();
+  </script>
+</body>
+</html>

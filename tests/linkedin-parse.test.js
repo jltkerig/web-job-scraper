@@ -1,4 +1,4 @@
-// Run with: node --test tests/linkedin-parse.test.js
+// Run with: npm test
 const test = require("node:test");
 const assert = require("node:assert");
 require("../extension/sites/linkedin-parse.js");
