@@ -9,7 +9,6 @@ const SAVE_EVERY_MS = 5 * 60 * 1000;
 const KEEP_DAYS = 30;
 const ROOT = "web-job-scraper";
 const MAX_DEBUG_RESPONSES = 8;
-const MAX_FLOWERS = 500;
 const PET_DEFAULTS = { enabled: true, speed: "normal", sites: { linkedin: true } };
 // Error codes shown in the panel (E7xxx; Job Finder's import uses E6xxx). Listed in the README.
 const ERRORS = {
@@ -27,7 +26,6 @@ const state = {
   lastSave: {}, // site -> ISO time
   broken: {}, // site -> { url, since }
   errors: {}, // site -> { code, message, at } for the last failed save
-  garden: [], // newest first: one flower per captured job, kept beyond the 30-day job store (see plant())
   noDetails: {}, // site -> { jobId, url, since, saved } when an open job's details could not be read
   autoSavedDay: {}, // site -> day a page copy was last saved automatically (at most one a day)
 };
@@ -58,9 +56,9 @@ function stamp(date = new Date()) {
 
 async function load() {
   const saved = await browser.storage.local.get(
-    ["jobs", "settings", "dirty", "lastSave", "broken", "errors", "noDetails", "autoSavedDay", "garden"]);
-  state.garden = saved.garden || [];
+    ["jobs", "settings", "dirty", "lastSave", "broken", "errors", "noDetails", "autoSavedDay"]);
   state.errors = saved.errors || {};
+  browser.storage.local.remove(["garden", "petPosition"]).catch(() => {}); // from v0.2.x, no longer used
   state.noDetails = saved.noDetails || {};
   state.autoSavedDay = saved.autoSavedDay || {};
   state.jobs = saved.jobs || {};
@@ -87,7 +85,7 @@ function persist() {
   clearTimeout(persistTimer);
   return browser.storage.local.set({
     jobs: state.jobs, settings: state.settings, dirty: [...state.dirty], lastSave: state.lastSave, broken: state.broken,
-    errors: state.errors, noDetails: state.noDetails, autoSavedDay: state.autoSavedDay, garden: state.garden,
+    errors: state.errors, noDetails: state.noDetails, autoSavedDay: state.autoSavedDay,
   });
 }
 
@@ -117,26 +115,6 @@ function sameContent(a, b) {
   return strip(a) === strip(b);
 }
 
-// ---------- garden ----------
-
-// One flower per captured job, newest first. The garden keeps only what a flower needs, so it outlives the
-// 30-day job store. A flower's stage follows the job: sprout (seen), bloom (opened), sparkle (applied), wilt (closed).
-function plant(record) {
-  const key = `${record.site}:${record.job_id}`;
-  const flower = {
-    key, site: record.site, title: record.title, company: record.company, salary: record.salary,
-    url: record.url, level: record.level, applied: record.applied, closed: record.closed,
-  };
-  const at = state.garden.findIndex((item) => item.key === key);
-  if (at >= 0) {
-    state.garden[at] = { ...state.garden[at], ...flower };
-    return false;
-  }
-  state.garden.unshift({ ...flower, planted: new Date().toISOString() });
-  if (state.garden.length > MAX_FLOWERS) state.garden.length = MAX_FLOWERS;
-  return true;
-}
-
 // Saves captured jobs. Returns how many were new (never captured before), which makes the fox pounce.
 function addJobs(site, jobs, tabId) {
   if (!state.settings.enabled[site] || !jobs.length) return 0;
@@ -154,7 +132,7 @@ function addJobs(site, jobs, tabId) {
     if (!old || !sameDay || !sameContent(old, record)) {
       state.dirty.add(`${site}|${today}`);
       changed = true;
-      if (record.title && plant(record)) added += 1;
+      if (!old && record.title) added += 1;
     }
   }
   if (tabId !== undefined && tabId >= 0) tabCounts.set(tabId, (tabCounts.get(tabId) || 0) + jobs.length);
@@ -170,15 +148,28 @@ function addJobs(site, jobs, tabId) {
     persistSoon();
     updateBadge();
   }
-  // The fox on that tab pounces, and its strip shows the new flowers.
+  // The fox on that tab pounces for new jobs, and its garden gains or loses flowers.
   if (changed && tabId !== undefined && tabId >= 0) {
     browser.tabs.sendMessage(tabId, { type: "pet-update", added, ...petState() }).catch(() => {});
   }
   return added;
 }
 
+// ---------- garden ----------
+
+// The garden: jobs the extension has spotted but not collected yet (only their card was read), newest first.
+// A job leaves the garden once its full details are collected (you opened it) or LinkedIn says it's closed.
+const MAX_FLOWERS = 120; // more than any screen shows
+function waitingJobs() {
+  return Object.values(state.jobs)
+    .filter((job) => job.title && job.level !== "opened" && !job.closed)
+    .sort((a, b) => b.first_seen.localeCompare(a.first_seen))
+    .slice(0, MAX_FLOWERS)
+    .map(({ site, job_id: jobId, title, url }) => ({ key: `${site}:${jobId}`, title, url }));
+}
+
 function petState() {
-  return { pet: state.settings.pet, garden: state.garden.slice(0, 7) };
+  return { pet: state.settings.pet, garden: waitingJobs() };
 }
 
 // ---------- writing files ----------

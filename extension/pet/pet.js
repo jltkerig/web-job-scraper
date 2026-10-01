@@ -1,12 +1,12 @@
-// The fox's behaviour and the garden, drawn on a canvas. Used by the strip on job sites (content/pet-strip.js)
-// and by the toolbar panel. Job events always win over idle activities.
+// The fox's behaviour and the garden, drawn on a canvas. Used by the strip along the bottom of LinkedIn's job pages
+// (content/pet-strip.js) and by the toolbar panel. It's decoration that changes as you work: each flower is a job
+// the extension has spotted but not collected yet, and an empty garden means the fox can sleep.
 (function (root) {
   "use strict";
 
   const S = root.PetSprites;
   const SPEEDS = { calm: 0.6, normal: 1, playful: 1.6 };
   const FLOWER_GAP = 12; // sprite pixels from one flower to the next (times the scale on the canvas)
-  const STRIP_FLOWERS = 7;
 
   function rand(min, max) {
     return min + Math.random() * (max - min);
@@ -26,14 +26,6 @@
     return { B: petal, b: light };
   }
 
-  // Which flower a job grows into.
-  function flowerStage(job) {
-    if (job.closed) return "wilt";
-    if (job.applied) return "sparkle";
-    if (job.level === "opened") return "bloom";
-    return "sprout";
-  }
-
   class Pet {
     // options: width/height (canvas px), scale, speed ("calm" | "normal" | "playful"), reduced (fewer animations),
     // panel (true in the toolbar panel: sit and nap only, no walking).
@@ -42,11 +34,11 @@
       this.height = options.height;
       this.scale = options.scale || 2;
       this.panel = Boolean(options.panel);
+      this.jobs = [];
       this.flowers = [];
       this.popups = []; // "+1" and "z" texts floating up
       this.x = this.width - S.FOX_SIZE * this.scale - 8;
       this.facingLeft = true;
-      this.hover = false;
       this.speed = 1;
       this.reduced = false;
       this.setOptions(options);
@@ -60,13 +52,23 @@
       if (this.reduced && this.state !== "sit") this.setState("sit", Infinity);
     }
 
-    // jobs come newest first; the newest flower is drawn on the right. Up to 7 show, fewer when the canvas is narrow,
-    // so they always leave room for the fox.
+    // The jobs still waiting to be collected, newest first. As many flowers as fit, newest on the right, leaving
+    // room at the right end for the fox. When the garden empties, the fox settles down to sleep.
     setFlowers(jobs) {
+      this.jobs = jobs;
       const gap = FLOWER_GAP * this.scale;
-      const room = Math.floor((this.width - S.FOX_SIZE * this.scale - 16) / gap);
-      this.flowers = jobs.slice(0, Math.max(1, Math.min(STRIP_FLOWERS, room))).reverse()
-        .map((job, i) => ({ job, stage: flowerStage(job), colors: petals(job), x: 8 + i * gap }));
+      const room = Math.max(0, Math.floor((this.width - S.FOX_SIZE * this.scale - 16) / gap));
+      this.flowers = jobs.slice(0, room).reverse().map((job, i) => ({ job, colors: petals(job), x: 8 + i * gap }));
+      if (!this.flowers.length && !["sleep", "stretch", "pounce"].includes(this.state)) this.nextIdle();
+    }
+
+    // The strip follows the window's width.
+    resize(width) {
+      this.width = width;
+      const span = Math.max(0, width - S.FOX_SIZE * this.scale);
+      this.x = Math.min(this.x, span);
+      if (typeof this.target === "number") this.target = Math.min(this.target, span);
+      this.setFlowers(this.jobs);
     }
 
     setState(name, duration, extra = {}) {
@@ -80,7 +82,8 @@
 
     captured(count) {
       if (this.reduced) return;
-      this.popups.push({ text: `+${count}`, x: this.foxCenter(), y: this.groundY() - 70, born: performance.now() });
+      this.popups.push({ text: `+${count}`, x: this.foxCenter(), y: this.groundY() - (S.FOX_SIZE + 3) * this.scale,
+        born: performance.now() });
       if (this.state === "sleep") {
         this.setState("stretch", 700 / this.speed, { after: () => this.setState("pounce", 900 / this.speed) });
       } else {
@@ -103,9 +106,11 @@
 
     nextIdle() {
       if (this.reduced) return this.setState("sit", Infinity);
+      const hold = rand(20000, 60000) / this.speed;
+      // Nothing left to collect: the fox's work is done, so it sleeps until a new job turns up.
+      if (!this.flowers.length) return this.setState("sleep", hold * 4);
       const naps = lateNight() ? 0.5 : 0.18;
       const roll = Math.random();
-      const hold = rand(20000, 60000) / this.speed;
       if (roll < naps) return this.setState("sleep", hold * 1.5);
       if (this.panel || roll < naps + 0.3) return this.setState("sit", hold);
       const span = this.width - S.FOX_SIZE * this.scale;
@@ -152,13 +157,6 @@
       return { x: this.x, y: this.groundY() - size, w: size, h: size };
     }
 
-    flowerBoxes() {
-      const [w, h] = S.FLOWER_SIZE;
-      return this.flowers.map((flower) => ({
-        x: flower.x, y: this.groundY() - (h - 1) * this.scale, w: w * this.scale, h: h * this.scale, job: flower.job,
-      }));
-    }
-
     pose(now) {
       const blinking = now >= this.blinkAt && now < this.blinkAt + 160;
       const t = now - this.stateStart;
@@ -166,7 +164,7 @@
         case "walk":
           return { frame: S.FOX.walk[Math.floor(t / (150 / this.speed)) % 4] };
         case "sleep":
-          return { frame: this.hover ? S.FOX.peek : S.FOX.sleep[Math.floor(t / 900) % 2] };
+          return { frame: S.FOX.sleep[Math.floor(t / 900) % 2] };
         case "stretch":
           return { frame: S.FOX.crouch };
         case "watch":
@@ -192,8 +190,7 @@
       for (let x = 0; x < this.width; x += 6 * this.scale) S.draw(ctx, S.GRASS, x, this.groundY() - 2 * this.scale, this.scale);
       const [fw, fh] = S.FLOWER_SIZE;
       for (const flower of this.flowers) {
-        S.draw(ctx, S.FLOWERS[flower.stage], flower.x, this.groundY() - (fh - 1) * this.scale, this.scale, false, fw,
-          flower.colors);
+        S.draw(ctx, S.FLOWER, flower.x, this.groundY() - (fh - 1) * this.scale, this.scale, false, fw, flower.colors);
       }
       const { frame, lift = 0 } = this.pose(now);
       const size = S.FOX_SIZE * this.scale;
@@ -218,5 +215,5 @@
     }
   }
 
-  root.Pet = { Pet, flowerStage, STRIP_FLOWERS };
+  root.Pet = { Pet };
 })(typeof globalThis !== "undefined" ? globalThis : this);

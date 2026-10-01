@@ -110,7 +110,6 @@ document.getElementById("check-update").addEventListener("click", () => {
 // ---------- the fox and the newest flowers ----------
 
 const gardenCanvas = document.getElementById("garden");
-const flowerInfo = document.getElementById("flower-info");
 const petEnabled = document.getElementById("pet-enabled");
 const petSpeed = document.getElementById("pet-speed");
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -139,30 +138,13 @@ function showPet(result) {
   fox.setFlowers(result.garden || []);
 }
 
+// Only the fox reacts to clicks; the flowers are decoration.
 gardenCanvas.addEventListener("click", (event) => {
   const rect = gardenCanvas.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
-  const inside = (box) => x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h;
-  const flower = fox.flowerBoxes().find(inside);
-  if (flower) {
-    const job = flower.job;
-    const stage = { sprout: "Seen", bloom: "Opened", sparkle: "Applied", wilt: "No longer open" }[Pet.flowerStage(job)];
-    const link = el("a", { href: job.url, textContent: "Open job" });
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (job.url.startsWith("https://www.linkedin.com/")) browser.tabs.create({ url: job.url });
-    });
-    flowerInfo.replaceChildren(
-      el("strong", { textContent: job.title || "Job" }),
-      el("div", { textContent: [job.company, job.salary, stage].filter(Boolean).join(" · ") }),
-      link,
-    );
-    flowerInfo.hidden = false;
-    return;
-  }
-  flowerInfo.hidden = true;
-  if (inside(fox.foxBox())) fox.clicked();
+  const box = fox.foxBox();
+  if (x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) fox.clicked();
 });
 
 petEnabled.addEventListener("change", () => send({ type: "set-pet", enabled: petEnabled.checked }).then(showPet));

@@ -13,9 +13,6 @@
     g: "#2f6b26", // stem green
     B: "#4f6fd9", // bluebell
     b: "#9fb2f5", // bluebell highlight
-    Y: "#ffd84a", // sparkle
-    w: "#8a6a3a", // wilted stem
-    v: "#8d89a8", // wilted petals
     k: "#1f3a1a", // flower outline, so flowers show on a white page
     E: "#7cbf5a", // grass
     e: "#5a9e3e", // grass shade
@@ -93,54 +90,25 @@
     ".KK.......",
   ];
 
-  // ---------- garden (9 x 14, bottom row on the ground) ----------
+  // ---------- garden: one flower per job still to collect (9 x 14, bottom row on the ground) ----------
+  // B and b are the petal colours; each flower gets its own pair from PETALS.
 
-  const FLOWERS = {
-    // Seen: a short stem with a closed bud in the flower's colour.
-    sprout: [
-      ".........", ".........", ".........", ".........", ".........", ".........",
-      "....B....",
-      "...BBb...",
-      "...BBB...",
-      "....g....",
-      "..G.g.G..",
-      "...GgG...",
-      "....g....",
-      "....g....",
-    ],
-    bloom: [
-      "...g.....",
-      "...g.BBB.",
-      "...ggBBBb",
-      "...g..bB.",
-      ".BBBg....",
-      "BBBbg....",
-      ".Bb.g....",
-      "....gBBB.",
-      "....gBBBb",
-      "....g.bB.",
-      ".G..g....",
-      "..G.g.G..",
-      "...GgG...",
-      "....g....",
-    ],
-    wilt: [
-      ".........", ".........", ".........", ".........", ".........",
-      ".vv......",
-      ".vvw.....",
-      "...ww....",
-      ".....w...",
-      ".....w...",
-      "..G..w...",
-      "...G.w.G.",
-      "....GwG..",
-      ".....w...",
-    ],
-  };
-  FLOWERS.sparkle = FLOWERS.bloom.map((row, y) => {
-    const marks = { 0: [1, 7], 3: [0], 6: [8], 8: [1] }[y] || [];
-    return row.split("").map((ch, x) => (marks.includes(x) ? "Y" : ch)).join("");
-  });
+  const BLOOM = [
+    "...g.....",
+    "...g.BBB.",
+    "...ggBBBb",
+    "...g..bB.",
+    ".BBBg....",
+    "BBBbg....",
+    ".Bb.g....",
+    "....gBBB.",
+    "....gBBBb",
+    "....g.bB.",
+    ".G..g....",
+    "..G.g.G..",
+    "...GgG...",
+    "....g....",
+  ];
 
   // ---------- composing frames ----------
 
@@ -158,11 +126,14 @@
   }
 
   // One leg: orange thigh, dark sock, a 3-pixel foot. dx moves the lower leg, lift raises the foot.
+  // The knee row covers both the thigh's and the lower leg's columns, so a stepping leg bends instead of
+  // touching only at a corner (which looked like the leg coming off).
   function leg(frame, x, top, dx = 0, lift = 0) {
     for (let y = top; y < top + 4; y += 1) {
       frame.set(`${x},${y}`, "D");
       frame.set(`${x + 1},${y}`, "D");
     }
+    for (let i = Math.min(0, dx); i <= 1 + Math.max(0, dx); i += 1) frame.set(`${x + i},${top + 4}`, "K");
     for (let y = top + 4; y < top + 8 - lift; y += 1) {
       frame.set(`${x + dx},${y}`, "K");
       frame.set(`${x + dx + 1},${y}`, "K");
@@ -171,6 +142,14 @@
   }
 
   const LEG_X = [8, 11, 17, 20]; // back, back, front, front
+  // Standing, the head (at 19,4) and body (at 6,13) only met at a corner, so the head looked loose: these pixels
+  // fill the neck between them, with an outline on its back and front.
+  const NECK = [
+    [18, 12, "K"], [19, 12, "O"],
+    [18, 13, "O"], [19, 13, "O"], [20, 13, "O"],
+    [19, 14, "O"], [20, 14, "O"], [21, 14, "O"],
+    [20, 15, "O"], [21, 15, "K"],
+  ];
   // Walk cycle: [dx, lift] for each leg in each of 4 frames.
   const WALK = [
     [[-1, 0], [1, 1], [1, 1], [-1, 0]],
@@ -188,6 +167,7 @@
       leg(frame, x, top, dx, lift);
     });
     stamp(frame, BODY, 6, 13 + bob - rise);
+    dots(frame, NECK, 0, bob - rise);
     stamp(frame, HEAD, 19, 4 + bob - rise);
     dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 19, 4 + bob - rise);
     return frame;
@@ -235,7 +215,6 @@
     sitBlink: sit({ eyes: false }),
     alert: sit({ alert: true }),
     sleep: [lie(), lie({ breathe: 1 })],
-    peek: lie({ eyes: true }),
     crouch: crouch(),
     leap: stand({ walk: 0, tail: "UP", rise: 4 }),
   };
@@ -261,14 +240,13 @@
     }
   }
 
-  // A one-pixel dark outline around every coloured pixel (sparkles stay loose), so thin stems and pale petals stand
-  // out on any page. The flower moves one pixel in, making each frame 11 x 15.
+  // A one-pixel dark outline around every coloured pixel, so thin stems and pale petals stand out on any page.
+  // The flower moves one pixel in, making the frame 11 x 15.
   function outlined(grid) {
     const frame = new Map();
     stamp(frame, grid, 1, 1);
     const ring = new Map();
-    for (const [key, ch] of frame) {
-      if (ch === "Y") continue;
+    for (const key of frame.keys()) {
       const [x, y] = key.split(",").map(Number);
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const near = `${x + dx},${y + dy}`;
@@ -279,12 +257,11 @@
     return frame;
   }
 
-  const FLOWER_FRAMES = {};
-  for (const [name, grid] of Object.entries(FLOWERS)) FLOWER_FRAMES[name] = outlined(grid);
+  const FLOWER = outlined(BLOOM);
 
   // A tuft of grass, 6 x 3, repeated along the ground.
   const GRASS = new Map();
   stamp(GRASS, ["..E..E", ".EeEEe", "eeeeee"], 0, 0);
 
-  root.PetSprites = { PALETTE, PETALS, FOX, FLOWERS: FLOWER_FRAMES, FLOWER_SIZE: [11, 15], GRASS, FOX_SIZE: 32, draw };
+  root.PetSprites = { PALETTE, PETALS, FOX, FLOWER, FLOWER_SIZE: [11, 15], GRASS, FOX_SIZE: 32, draw };
 })(typeof globalThis !== "undefined" ? globalThis : this);
