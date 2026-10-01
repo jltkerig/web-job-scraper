@@ -44,7 +44,8 @@ header {
 }
 
 h1 { font-size: 15px; margin: 0; }
-.version { margin-left: auto; color: var(--muted); font-size: 12px; }
+/* Right after the title, not at the far right, where the panel's scrollbar or edge can hide it. */
+.version { color: var(--muted); font-size: 12px; }
 h2 { font-size: 13px; margin: 0 0 4px; }
 main { padding: 10px 12px 12px; }
 
