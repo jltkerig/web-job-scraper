@@ -148,6 +148,21 @@ test("no bee with an empty garden, in the panel, or with reduce animations on", 
   }
 });
 
+test("the fox is drawn in every state even when the frame clock is a moment behind (it used to vanish)", () => {
+  const pet = fox();
+  pet.setFlowers(waiting(3));
+  for (const state of ["walk", "sleep", "stretch", "watch", "pounce", "sit"]) {
+    pet.setState(state, 5000, state === "walk" ? { target: 10 } : {});
+    const before = pet.stateStart - 0.4; // a frame time slightly earlier than the state's start
+    const { frame } = pet.pose(before);
+    assert.ok(frame instanceof Map && frame.size > 0, `no fox picture while "${state}"`);
+    const drawn = [];
+    const ctx = { clearRect() {}, fillRect: (x, y) => drawn.push([x, y]), fillText() {}, globalAlpha: 1 };
+    pet.draw(ctx, before);
+    assert.ok(drawn.length > 500, `fox not drawn while "${state}"`);
+  }
+});
+
 test("there is no hover state any more", () => {
   assert.strictEqual("hover" in fox(), false);
   assert.strictEqual(globalThis.PetSprites.FOX.peek, undefined);

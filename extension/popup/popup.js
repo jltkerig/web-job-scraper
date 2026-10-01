@@ -124,10 +124,14 @@ const fox = new Pet.Pet({ width: 340, height: 116, scale: 3, panel: true, reduce
 let lastFrame = 0;
 
 function animate(now) {
-  fox.update(now, lastFrame ? Math.min(now - lastFrame, 100) : 16);
-  lastFrame = now;
-  fox.draw(gardenCtx, now);
-  requestAnimationFrame(animate);
+  requestAnimationFrame(animate); // first, so one bad frame can't stop the fox
+  try {
+    fox.update(now, lastFrame ? Math.max(0, Math.min(now - lastFrame, 100)) : 16);
+    lastFrame = now;
+    fox.draw(gardenCtx, now);
+  } catch (error) {
+    console.warn("web-job-scraper fox:", error);
+  }
 }
 requestAnimationFrame(animate);
 

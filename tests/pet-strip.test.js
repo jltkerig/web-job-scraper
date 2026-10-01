@@ -43,7 +43,7 @@ async function stripPage({ minimized = false } = {}) {
   window.Element.prototype.attachShadow = function open() { return attach.call(this, { mode: "open" }); }; // for the test
   for (const file of ["pet/sprites.js", "pet/pet.js", "content/pet-strip.js"]) window.eval(read(file));
   await new Promise((resolve) => setTimeout(resolve, 20));
-  const host = [...window.document.body.children].find((node) => node.shadowRoot);
+  const host = [...window.document.documentElement.children].find((node) => node.shadowRoot);
   pages.push(window);
   return { window, host, root: host && host.shadowRoot, stored };
 }
@@ -68,6 +68,24 @@ test("minimizing shrinks it to a badge, remembers it, and the badge brings it ba
   assert.strictEqual(stored.petMinimized, false);
   assert.match(host.style.cssText, /left: 0px/);
   assert.strictEqual(root.querySelector("canvas.strip").hidden, false);
+});
+
+test("if the page's redraw throws the strip out, it comes back", async () => {
+  const { window, host } = await stripPage();
+  assert.strictEqual(host.parentNode, window.document.documentElement); // outside the body LinkedIn redraws
+  host.remove();
+  assert.strictEqual(host.isConnected, false);
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  assert.strictEqual(host.isConnected, true);
+});
+
+test("a page that briefly reports no width keeps a usable strip", async () => {
+  const { window } = await stripPage();
+  Object.defineProperty(window.document.documentElement, "clientWidth", { configurable: true, get: () => 0 });
+  window.dispatchEvent(new window.Event("resize"));
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  const canvas = [...window.document.documentElement.children].find((node) => node.shadowRoot).shadowRoot.querySelector("canvas.strip");
+  assert.ok(parseFloat(canvas.style.width) >= 320, `strip width ${canvas.style.width}`);
 });
 
 test("a page opened while minimized starts as the badge", async () => {

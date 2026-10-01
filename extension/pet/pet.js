@@ -222,7 +222,9 @@
 
     pose(now) {
       const blinking = now >= this.blinkAt && now < this.blinkAt + 160;
-      const t = now - this.stateStart;
+      // The frame clock can be a moment behind the time a state began; a negative time would pick a frame that
+      // doesn't exist (index -1) and the fox would vanish, so time in a state never goes below zero.
+      const t = Math.max(0, now - this.stateStart);
       switch (this.state) {
         case "walk":
           return { frame: S.FOX.walk[Math.floor(t / (150 / this.speed)) % 4] };
