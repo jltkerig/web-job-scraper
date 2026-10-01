@@ -1,25 +1,29 @@
-// Runs on LinkedIn pages. Reads jobs from the embedded JSON and the visible page as you scroll,
-// and sends them to background.js. Read-only: it never clicks, scrolls or navigates.
+// Runs on the job sites you browse (LinkedIn, the Maryland Workforce Exchange). Reads the jobs on the page as you
+// scroll, using the site's reader (sites/*-parse.js sets globalThis.CaptureParse), and sends them to background.js.
+// Read-only: it never clicks, scrolls, navigates or fetches anything.
 (function () {
   "use strict";
 
-  const parse = globalThis.LinkedInParse;
+  const parse = globalThis.CaptureParse;
   const SETTLE_MS = 15000;
   const embeddedDone = new WeakSet();
   const sent = new Map(); // job_id -> JSON of what was last sent, so unchanged jobs aren't resent
   let pageUrl = location.href;
   let foundOnPage = 0;
+  let lastJobs = [];
   let scanTimer = null;
   let settleTimer = null;
 
   function onJobsPage() {
-    return location.pathname.startsWith("/jobs");
+    return parse.onJobsPage(location);
   }
 
   function scan() {
     scanTimer = null;
     if (!onJobsPage()) return;
-    const jobs = [...parse.fromEmbedded(document, location.href, embeddedDone), ...parse.fromDom(document, location.href)];
+    const embedded = parse.fromEmbedded ? parse.fromEmbedded(document, location.href, embeddedDone) : [];
+    const jobs = [...embedded, ...parse.fromDom(document, location.href)];
+    lastJobs = jobs;
     const fresh = [];
     for (const job of jobs) {
       const key = JSON.stringify(job);
@@ -37,10 +41,11 @@
     if (!scanTimer) scanTimer = setTimeout(scan, 1000);
   }
 
-  // LinkedIn changes pages without reloading, so each URL change counts as a new page view.
+  // Sites like LinkedIn change pages without reloading, so each URL change counts as a new page view.
   function pageView() {
     pageUrl = location.href;
     foundOnPage = 0;
+    lastJobs = [];
     clearTimeout(settleTimer);
     if (!onJobsPage()) return;
     browser.runtime.sendMessage({ type: "page-view", site: parse.SITE, pageUrl }).catch(() => {});
@@ -48,9 +53,9 @@
       scan();
       browser.runtime.sendMessage({
         type: "page-settled", site: parse.SITE, pageUrl, found: foundOnPage, expectsJobs: parse.expectsJobs(pageUrl),
-        // The job open on this page (its own page, or the details pane next to a list), so the background can
-        // check that its details were read.
-        detailJobId: parse.idFromUrl(pageUrl),
+        // The job open on this page (its own page, or a details pane next to a list), so the background can check
+        // that its details were read.
+        detailJobId: parse.detailId(pageUrl, lastJobs),
       }).catch(() => {});
     }, SETTLE_MS);
     scheduleScan();

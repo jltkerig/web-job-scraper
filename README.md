@@ -1,14 +1,16 @@
 # Web Job Scraper
 
-A Firefox extension that saves the jobs you look at on LinkedIn, so Job Finder can add the ones that fit your search.
+A Firefox extension that saves the jobs you look at on LinkedIn and the Maryland Workforce Exchange, so Job Finder can add the ones that fit your search.
 
 It only reads the pages you open yourself. It never clicks, scrolls, or opens anything on its own.
 
-**Sites:** LinkedIn now. Indeed and Glassdoor come next.
+**Sites:** LinkedIn, and the Maryland Workforce Exchange (mwejobs.maryland.gov). Indeed and Glassdoor come next.
+
+The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt disallows them), so Job Finder never searches it itself. The extension only reads MWE job pages and search results you open yourself. Many of the same jobs also reach Job Finder through the National Labor Exchange (usnlx.com), which Job Finder searches.
 
 ## How it works
 
-1. You browse LinkedIn jobs as usual, in Firefox Developer Edition.
+1. You browse LinkedIn or Maryland Workforce Exchange jobs as usual, in Firefox Developer Edition.
 2. The extension saves each job it sees into a file in your Downloads folder, one file per site per day. It saves at most every 5 minutes and again when you close the LinkedIn tab.
 3. Next time you open Job Finder, the Search page asks: *"Found 1 new capture file… Move them to web-job-scraper\searches and import them?"*
 4. Click **Yes**. Job Finder moves the files, checks each job against your profile, and adds the ones that fit. Click **Not now** and it asks again when new files arrive.
@@ -33,7 +35,7 @@ It only reads the pages you open yourself. It never clicks, scrolls, or opens an
 
 ## The toolbar panel
 
-- **LinkedIn — On:** turns capture on or off.
+- **LinkedIn — On / Maryland Workforce Exchange — On:** turns capture on or off for each site.
 - **Today:** jobs seen, jobs opened (full details captured) and jobs that are new today.
 - **Saved … ago:** when the day's file was last written. **Save now** writes it straight away.
 - **Check for updates:** if there's a newer version, the install page opens; click **Install**, then **Add**. The version you have is shown at the top right.

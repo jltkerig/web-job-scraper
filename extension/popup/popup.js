@@ -85,7 +85,7 @@ function show(result) {
     const link = el("a", { href: job.url, textContent: job.title || job.url });
     link.addEventListener("click", (event) => {
       event.preventDefault();
-      if (job.url.startsWith("https://www.linkedin.com/")) browser.tabs.create({ url: job.url });
+      if (/^https:\/\/(www\.linkedin\.com|(www\.)?mwejobs\.maryland\.gov)\//.test(job.url)) browser.tabs.create({ url: job.url });
     });
     needsList.append(el("li", {}, [link, el("span", { className: "company", textContent: job.company || "" })]));
   }
@@ -98,7 +98,7 @@ document.getElementById("save-now").addEventListener("click", () => {
     .catch((error) => { message.textContent = String(error.message || error); });
 });
 
-document.getElementById("save-page").addEventListener("click", () => savePage("linkedin"));
+document.getElementById("save-page").addEventListener("click", () => savePage(null)); // the site of the open tab
 
 document.getElementById("check-update").addEventListener("click", () => {
   message.textContent = "Checking for updates…";
