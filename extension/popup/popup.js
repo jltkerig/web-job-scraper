@@ -184,11 +184,11 @@ const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const gardenCtx = gardenCanvas.getContext("2d");
 const ratio = window.devicePixelRatio || 1;
 gardenCanvas.width = 340 * ratio;
-gardenCanvas.height = 116 * ratio;
+gardenCanvas.height = 140 * ratio;
 gardenCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
 gardenCtx.imageSmoothingEnabled = false;
 // The panel fox only sits and naps (no walking).
-const fox = new Pet.Pet({ width: 340, height: 116, scale: 3, panel: true, reduced: reducedMotion.matches });
+const fox = new Pet.Pet({ width: 340, height: 140, scale: 3, foxScale: 2, panel: true, reduced: reducedMotion.matches });
 let lastFrame = 0;
 
 function animate(now) {
