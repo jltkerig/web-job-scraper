@@ -15,6 +15,7 @@ const ERRORS = {
   broken: "E7002", // on a jobs page, but no jobs were captured
   debug: "E7003", // "Save page for fixing" did not work
   update: "E7004", // the update check could not reach the project's GitHub Pages site
+  details: "E7005", // a job was open, but its details (description, location) could not be read
 };
 
 const state = {
@@ -24,6 +25,8 @@ const state = {
   lastSave: {}, // site -> ISO time
   broken: {}, // site -> { url, since }
   errors: {}, // site -> { code, message, at } for the last failed save
+  noDetails: {}, // site -> { jobId, url, since, saved } when an open job's details could not be read
+  autoSavedDay: {}, // site -> day a page copy was last saved automatically (at most one a day)
 };
 const tabCounts = new Map(); // tabId -> jobs received since the tab's last page view
 const tabSites = new Map(); // tabId -> site
@@ -51,8 +54,11 @@ function stamp(date = new Date()) {
 // ---------- storage ----------
 
 async function load() {
-  const saved = await browser.storage.local.get(["jobs", "settings", "dirty", "lastSave", "broken", "errors"]);
+  const saved = await browser.storage.local.get(
+    ["jobs", "settings", "dirty", "lastSave", "broken", "errors", "noDetails", "autoSavedDay"]);
   state.errors = saved.errors || {};
+  state.noDetails = saved.noDetails || {};
+  state.autoSavedDay = saved.autoSavedDay || {};
   state.jobs = saved.jobs || {};
   state.settings = { ...state.settings, ...(saved.settings || {}) };
   state.settings.enabled = { linkedin: true, ...(state.settings.enabled || {}) };
@@ -75,7 +81,7 @@ function persist() {
   clearTimeout(persistTimer);
   return browser.storage.local.set({
     jobs: state.jobs, settings: state.settings, dirty: [...state.dirty], lastSave: state.lastSave, broken: state.broken,
-    errors: state.errors,
+    errors: state.errors, noDetails: state.noDetails, autoSavedDay: state.autoSavedDay,
   });
 }
 
@@ -125,6 +131,10 @@ function addJobs(site, jobs, tabId) {
   if (tabId !== undefined && tabId >= 0) tabCounts.set(tabId, (tabCounts.get(tabId) || 0) + jobs.length);
   if (state.broken[site]) {
     delete state.broken[site];
+    changed = true;
+  }
+  if (state.noDetails[site] && jobs.some((job) => job.level === "opened")) {
+    delete state.noDetails[site]; // a job's details were read again, so the reading works
     changed = true;
   }
   if (changed) {
@@ -252,6 +262,7 @@ for (const [site, info] of Object.entries(SITES)) {
 function updateBadge() {
   const problems = [
     ...Object.keys(state.errors).map((site) => `[${state.errors[site].code}] ${SITES[site].name} file not saved`),
+    ...Object.keys(state.noDetails).map((site) => `[${ERRORS.details}] ${SITES[site].name} job details not read`),
     ...Object.keys(state.broken).map((site) => `[${ERRORS.broken}] ${SITES[site].name} capture may be broken`),
   ];
   if (problems.length) {
@@ -267,10 +278,31 @@ function updateBadge() {
   browser.browserAction.setTitle({ title: `Job Scraper: ${fresh} new job${fresh === 1 ? "" : "s"} today` });
 }
 
-function pageSettled(site, message, tabId) {
+async function pageSettled(site, message, tabId) {
   if (!message.expectsJobs || !state.settings.enabled[site]) return;
-  if (message.found > 0 || (tabCounts.get(tabId) || 0) > 0) return;
-  state.broken[site] = { url: message.pageUrl, since: new Date().toISOString() };
+  if (message.found === 0 && (tabCounts.get(tabId) || 0) === 0) {
+    state.broken[site] = { url: message.pageUrl, since: new Date().toISOString() };
+    persistSoon();
+    updateBadge();
+    return;
+  }
+  // A job is open (its own page or the details pane): its full details should have been read by now.
+  const job = message.detailJobId && state.jobs[`${site}:${message.detailJobId}`];
+  if (!message.detailJobId || (job && job.level === "opened")) return;
+  const today = localDay();
+  const problem = { jobId: message.detailJobId, url: message.pageUrl, since: new Date().toISOString(), saved: null };
+  // One page copy a day is enough to fix the reading; it's saved without asking so nothing has to be clicked.
+  if (state.autoSavedDay[site] !== today && tabId !== undefined) {
+    try {
+      problem.saved = await saveDebug(site, tabId);
+      state.autoSavedDay[site] = today;
+    } catch (error) {
+      problem.saved = null;
+    }
+  } else if (state.noDetails[site]) {
+    problem.saved = state.noDetails[site].saved;
+  }
+  state.noDetails[site] = problem;
   persistSoon();
   updateBadge();
 }
@@ -293,6 +325,7 @@ function popupState() {
       unsaved: [...state.dirty].some((key) => key.startsWith(`${site}|`)),
       broken: state.broken[site] ? { ...state.broken[site], code: ERRORS.broken } : null,
       error: state.errors[site] || null,
+      noDetails: state.noDetails[site] ? { ...state.noDetails[site], code: ERRORS.details } : null,
     };
   }
   const needsLook = Object.values(state.jobs)
@@ -305,9 +338,11 @@ function popupState() {
   };
 }
 
-async function saveDebug(site) {
+// Saves a LinkedIn tab's page and recent background data to Downloads\web-job-scraper\debug\ (the active tab
+// unless one is given). Returns the folder.
+async function saveDebug(site, tabId) {
   const fail = (message) => new Error(`[${ERRORS.debug}] ${message}`);
-  const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+  const tab = tabId !== undefined ? { id: tabId } : (await browser.tabs.query({ active: true, currentWindow: true }))[0];
   let page = null;
   try {
     page = tab ? await browser.tabs.sendMessage(tab.id, { type: "get-page-html" }) : null;
@@ -373,7 +408,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
         }
         return true;
       case "page-settled":
-        pageSettled(message.site, message, tabId);
+        await pageSettled(message.site, message, tabId);
         return true;
       case "popup-state":
         return popupState();
@@ -392,6 +427,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
         return { folder: await saveDebug(message.site) };
       case "clear-warning":
         delete state.broken[message.site];
+        delete state.noDetails[message.site];
         await persist();
         updateBadge();
         return popupState();

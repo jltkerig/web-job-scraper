@@ -48,6 +48,9 @@
       scan();
       browser.runtime.sendMessage({
         type: "page-settled", site: parse.SITE, pageUrl, found: foundOnPage, expectsJobs: parse.expectsJobs(pageUrl),
+        // The job open on this page (its own page, or the details pane next to a list), so the background can
+        // check that its details were read.
+        detailJobId: parse.idFromUrl(pageUrl),
       }).catch(() => {});
     }, SETTLE_MS);
     scheduleScan();
