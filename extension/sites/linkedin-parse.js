@@ -344,5 +344,18 @@
     }
   }
 
-  root.LinkedInParse = { SITE, jobUrl, idFromUrl, pageKind, fromVoyager, fromDom, fromEmbedded, expectsJobs, CLOSED_TEXT };
+  function onJobsPage(loc) {
+    return loc.pathname.startsWith("/jobs");
+  }
+
+  // The job open on this page: its own page, or the details pane next to a list (?currentJobId=).
+  function detailId(pageUrl) {
+    return idFromUrl(pageUrl);
+  }
+
+  root.LinkedInParse = {
+    SITE, NAME: "LinkedIn", jobUrl, idFromUrl, pageKind, fromVoyager, fromDom, fromEmbedded, expectsJobs, onJobsPage,
+    detailId, CLOSED_TEXT,
+  };
+  root.CaptureParse = root.LinkedInParse; // the reader content/capture.js uses on LinkedIn pages
 })(typeof globalThis !== "undefined" ? globalThis : this);

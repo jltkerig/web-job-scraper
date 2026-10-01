@@ -2,9 +2,24 @@
 // web-job-scraper\searches\passive-mm-dd-yyyy\<site>\ in Firefox's downloads folder, and runs the capture health check.
 "use strict";
 
+// Each site: its reader, the background data to read (LinkedIn only), and the hosts it lives on.
 const SITES = {
-  linkedin: { name: "LinkedIn", parse: globalThis.LinkedInParse, api: "https://www.linkedin.com/voyager/api/*" },
+  linkedin: { name: "LinkedIn", parse: globalThis.LinkedInParse, api: "https://www.linkedin.com/voyager/api/*",
+    hosts: ["www.linkedin.com"] },
+  // The Maryland Workforce Exchange allows no automated visitors, so only pages you open are read.
+  mwe: { name: "Maryland Workforce Exchange", parse: globalThis.MweParse, api: null,
+    hosts: ["mwejobs.maryland.gov", "www.mwejobs.maryland.gov"] },
 };
+
+function siteForUrl(url) {
+  let host = "";
+  try {
+    host = new URL(url).hostname;
+  } catch (error) {
+    return null;
+  }
+  return Object.keys(SITES).find((site) => SITES[site].hosts.includes(host)) || null;
+}
 const SAVE_EVERY_MS = 5 * 60 * 1000;
 const KEEP_DAYS = 30;
 const ROOT = "web-job-scraper";
@@ -21,7 +36,7 @@ const ERRORS = {
 
 const state = {
   jobs: {}, // "site:job_id" -> record
-  settings: { enabled: { linkedin: true } },
+  settings: { enabled: { linkedin: true, mwe: true } },
   dirty: new Set(), // "site|yyyy-mm-dd" files that need writing
   lastSave: {}, // site -> ISO time
   broken: {}, // site -> { url, since }
@@ -63,7 +78,7 @@ async function load() {
   state.autoSavedDay = saved.autoSavedDay || {};
   state.jobs = saved.jobs || {};
   state.settings = { ...state.settings, ...(saved.settings || {}) };
-  state.settings.enabled = { linkedin: true, ...(state.settings.enabled || {}) };
+  state.settings.enabled = { linkedin: true, mwe: true, ...(state.settings.enabled || {}) };
   const pet = state.settings.pet || {};
   state.settings.pet = { ...PET_DEFAULTS, ...pet, sites: { ...PET_DEFAULTS.sites, ...(pet.sites || {}) } };
   state.dirty = new Set(saved.dirty || []);
@@ -264,6 +279,7 @@ function rememberResponse(tabId, url, text) {
 }
 
 for (const [site, info] of Object.entries(SITES)) {
+  if (!info.api) continue; // only LinkedIn's background data is read
   browser.webRequest.onBeforeRequest.addListener((details) => {
     // Only job pages, and only while capture is on for the site. Everything is passed through unchanged.
     if (!state.settings.enabled[site] || !String(details.documentUrl || "").includes("/jobs")) return undefined;
@@ -376,6 +392,9 @@ function popupState() {
 async function saveDebug(site, tabId) {
   const fail = (message) => new Error(`[${ERRORS.debug}] ${message}`);
   const tab = tabId !== undefined ? { id: tabId } : (await browser.tabs.query({ active: true, currentWindow: true }))[0];
+  // From the panel's button: the site is whichever job site the open tab is on.
+  site = site || (tab && tab.url && siteForUrl(tab.url));
+  if (!site) throw fail("Open a LinkedIn or Maryland Workforce Exchange jobs page, then try again.");
   let page = null;
   try {
     page = tab ? await browser.tabs.sendMessage(tab.id, { type: "get-page-html" }) : null;
