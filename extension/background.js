@@ -159,10 +159,13 @@ function addJobs(site, jobs, tabId) {
 
 // The garden: jobs the extension has spotted but not collected yet (only their card was read), newest first.
 // A job leaves the garden once its full details are collected (you opened it) or LinkedIn says it's closed.
+// The garden starts empty each time Firefox starts: only jobs seen since then grow flowers (one seen in an
+// earlier session gets a flower again when it turns up in a list).
 const MAX_FLOWERS = 120; // more than any screen shows
+const GARDEN_SINCE = new Date().toISOString();
 function waitingJobs() {
   return Object.values(state.jobs)
-    .filter((job) => job.title && job.level !== "opened" && !job.closed)
+    .filter((job) => job.title && job.level !== "opened" && !job.closed && job.last_seen >= GARDEN_SINCE)
     .sort((a, b) => b.first_seen.localeCompare(a.first_seen))
     .slice(0, MAX_FLOWERS)
     .map(({ site, job_id: jobId, title, url }) => ({ key: `${site}:${jobId}`, title, url }));
