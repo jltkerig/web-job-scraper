@@ -32,6 +32,10 @@ const ERRORS = {
   debug: "E7003", // "Save page for fixing" did not work
   update: "E7004", // the update check could not reach the project's GitHub Pages site
   details: "E7005", // a job was open, but its details (description, location) could not be read
+  signIn: "E7006", // a scheduled run stopped: LinkedIn asked you to sign in
+  securityCheck: "E7007", // a scheduled run stopped: LinkedIn showed a security check (no more runs that day)
+  runTabClosed: "E7008", // a scheduled run stopped: its tab was closed
+  runFailed: "E7009", // a scheduled run stopped for another reason
 };
 
 const state = {
@@ -43,6 +47,9 @@ const state = {
   errors: {}, // site -> { code, message, at } for the last failed save
   noDetails: {}, // site -> { jobId, url, since, saved } when an open job's details could not be read
   autoSavedDay: {}, // site -> day a page copy was last saved automatically (at most one a day)
+  runs: [], // scheduled LinkedIn runs and their result tags (runs.js)
+  securityCheckDay: null, // the day LinkedIn last showed a security check during a run: no more runs that day
+  runAlert: null, // { code, message } of the last stopped run, until dismissed
 };
 const tabCounts = new Map(); // tabId -> jobs received since the tab's last page view
 const tabSites = new Map(); // tabId -> site
@@ -71,8 +78,12 @@ function stamp(date = new Date()) {
 
 async function load() {
   const saved = await browser.storage.local.get(
-    ["jobs", "settings", "dirty", "lastSave", "broken", "errors", "noDetails", "autoSavedDay"]);
+    ["jobs", "settings", "dirty", "lastSave", "broken", "errors", "noDetails", "autoSavedDay", "runs", "securityCheckDay",
+      "runAlert"]);
   state.errors = saved.errors || {};
+  state.runs = saved.runs || [];
+  state.securityCheckDay = saved.securityCheckDay || null;
+  state.runAlert = saved.runAlert || null;
   browser.storage.local.remove(["garden", "petPosition"]).catch(() => {}); // from v0.2.x, no longer used
   state.noDetails = saved.noDetails || {};
   state.autoSavedDay = saved.autoSavedDay || {};
@@ -88,6 +99,7 @@ async function load() {
   for (const [key, job] of Object.entries(state.jobs)) {
     if (Date.parse(job.last_seen) < cutoff) delete state.jobs[key];
   }
+  catchUpRuns(); // runs.js: runs due while Firefox was closed
   updateBadge();
 }
 
@@ -100,7 +112,8 @@ function persist() {
   clearTimeout(persistTimer);
   return browser.storage.local.set({
     jobs: state.jobs, settings: state.settings, dirty: [...state.dirty], lastSave: state.lastSave, broken: state.broken,
-    errors: state.errors, noDetails: state.noDetails, autoSavedDay: state.autoSavedDay,
+    errors: state.errors, noDetails: state.noDetails, autoSavedDay: state.autoSavedDay, runs: state.runs,
+    securityCheckDay: state.securityCheckDay, runAlert: state.runAlert,
   });
 }
 
@@ -137,6 +150,8 @@ function addJobs(site, jobs, tabId) {
   const today = localDay();
   let changed = false;
   let added = 0;
+  const keys = [];
+  const freshKeys = [];
   for (const job of jobs) {
     if (!job || job.site !== site || !job.job_id) continue;
     const key = `${site}:${job.job_id}`;
@@ -144,12 +159,15 @@ function addJobs(site, jobs, tabId) {
     const record = merge(old, job, now);
     const sameDay = old && localDay(new Date(old.last_seen)) === today;
     state.jobs[key] = record;
+    keys.push(key);
+    if (!old && record.title) freshKeys.push(key);
     if (!old || !sameDay || !sameContent(old, record)) {
       state.dirty.add(`${site}|${today}`);
       changed = true;
       if (!old && record.title) added += 1;
     }
   }
+  runSawJobs(tabId, keys, freshKeys); // runs.js: counts toward a scheduled run's result
   if (tabId !== undefined && tabId >= 0) tabCounts.set(tabId, (tabCounts.get(tabId) || 0) + jobs.length);
   if (state.broken[site]) {
     delete state.broken[site];
@@ -165,7 +183,7 @@ function addJobs(site, jobs, tabId) {
   }
   // The fox on that tab pounces for new jobs, and its garden gains or loses flowers.
   if (changed && tabId !== undefined && tabId >= 0) {
-    browser.tabs.sendMessage(tabId, { type: "pet-update", added, ...petState() }).catch(() => {});
+    browser.tabs.sendMessage(tabId, { type: "pet-update", added, ...petState(tabId) }).catch(() => {});
   }
   return added;
 }
@@ -186,8 +204,10 @@ function waitingJobs() {
     .map(({ site, job_id: jobId, title, url }) => ({ key: `${site}:${jobId}`, title, url }));
 }
 
-function petState() {
-  return { pet: state.settings.pet, garden: waitingJobs() };
+// The fox never appears in a scheduled run's tab: nothing is added to pages the extension opens by itself.
+function petState(tabId) {
+  const pet = isRunTab(tabId) ? { ...state.settings.pet, enabled: false } : state.settings.pet;
+  return { pet, garden: waitingJobs() };
 }
 
 // ---------- writing files ----------
@@ -308,6 +328,13 @@ for (const [site, info] of Object.entries(SITES)) {
 // ---------- health check, badge ----------
 
 function updateBadge() {
+  if (state.runAlert) {
+    // A stopped scheduled run (sign-in or security check) shows a red ! until dismissed in the panel.
+    browser.browserAction.setBadgeText({ text: "!" });
+    browser.browserAction.setBadgeBackgroundColor({ color: "#c62828" });
+    browser.browserAction.setTitle({ title: `Job Scraper: [${state.runAlert.code}] ${state.runAlert.message}` });
+    return;
+  }
   const problems = [
     ...Object.keys(state.errors).map((site) => `[${state.errors[site].code}] ${SITES[site].name} file not saved`),
     ...Object.keys(state.noDetails).map((site) => `[${ERRORS.details}] ${SITES[site].name} job details not read`),
@@ -384,6 +411,8 @@ function popupState() {
     needsLookTotal: needsLook.length,
     needsLook: needsLook.slice(0, 30).map(({ site, title, company, url }) => ({ site, title, company, url })),
     ...petState(),
+    runs: runsForPopup(),
+    runAlert: state.runAlert,
   };
 }
 
@@ -466,14 +495,34 @@ browser.runtime.onMessage.addListener((message, sender) => {
       case "popup-state":
         return popupState();
       case "pet-state":
-        return petState();
+        return petState(tabId);
+      case "add-run":
+        addRun(message.when);
+        await persist();
+        return popupState();
+      case "remove-run":
+        removeRun(message.id);
+        await persist();
+        return popupState();
+      case "run-now": {
+        const run = addRun(new Date().toISOString());
+        browser.alarms.clear(`run:${run.id}`);
+        startRun(run.id); // runs on its own; the panel shows its tag
+        await persist();
+        return popupState();
+      }
+      case "clear-run-alert":
+        state.runAlert = null;
+        await persist();
+        updateBadge();
+        return popupState();
       case "set-pet": {
         const pet = state.settings.pet;
         if (typeof message.enabled === "boolean") pet.enabled = message.enabled;
         if (["calm", "normal", "playful"].includes(message.speed)) pet.speed = message.speed;
         await persist();
         // Every open job-site tab updates its fox straight away.
-        for (const [id] of tabSites) browser.tabs.sendMessage(id, { type: "pet-update", added: 0, ...petState() }).catch(() => {});
+        for (const [id] of tabSites) browser.tabs.sendMessage(id, { type: "pet-update", added: 0, ...petState(id) }).catch(() => {});
         return popupState();
       }
       case "set-enabled":
@@ -503,6 +552,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
 
 // A site tab closing saves right away, so a session's jobs aren't left waiting.
 browser.tabs.onRemoved.addListener((tabId) => {
+  runTabClosed(tabId); // runs.js: closing a run's tab stops the run
   const site = tabSites.get(tabId);
   tabSites.delete(tabId);
   tabCounts.delete(tabId);
@@ -515,5 +565,7 @@ browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "flush") {
     flush(false);
     updateBadge(); // rolls the "new today" count over at midnight
+  } else if (alarm.name.startsWith("run:")) {
+    startRun(alarm.name.slice(4)); // runs.js: a scheduled run's time has come
   }
 });

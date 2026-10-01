@@ -44,6 +44,30 @@ The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt
 
 The number on the icon is how many new jobs were captured today.
 
+## Scheduled LinkedIn runs
+
+Pick a date and time in the panel's **Scheduled LinkedIn runs** section and click **Add**. Only one-off runs for now. **Run now** starts one straight away. At that time:
+
+1. Firefox opens a **background tab** with LinkedIn's Jobs home ("Top job picks for you") and then the "Recommended for you" collection. It reads page 1 of each, the same way it reads pages you browse.
+2. It opens up to **10 new jobs** it doesn't have details for yet, one every 20 to 45 seconds at random, to collect their descriptions and locations.
+3. It closes the tab and saves the jobs to the day's file, ready for Job Finder's import. The fox never appears in that tab.
+
+Each run in the list has a **tag**:
+
+| Tag | Meaning |
+|---|---|
+| Scheduled | Waiting for its time. Click × to cancel it. |
+| Running | Going now (it takes a few minutes). |
+| Done | Finished, for example "24 jobs, 6 new, 6 opened for details". |
+| Stopped | Ended early, with an error code (see below) and the reason. |
+| Missed | Firefox wasn't open that day. A run whose time passed while Firefox was closed still happens later the same day ("ran late"). |
+
+**Safety:**
+- A run stops at once on a LinkedIn sign-in page or any security check ("verify it's you", CAPTCHA), and never tries to get past it.
+- After a security check, no more runs happen that day.
+- A stopped run shows a red `!` on the icon until you dismiss it in the panel.
+- Firefox must be open and the computer awake at the run's time.
+
 ## The fox and the garden
 
 A pixel-art fox and its garden run along the whole bottom of LinkedIn's job pages, and across the top of the panel. They're there to make browsing less boring, so they change as you work but aren't something to manage.
@@ -114,6 +138,10 @@ web-job-scraper\searches\
 | E7003 | **Save page for fixing** didn't work. | Open the LinkedIn jobs page that had the problem, then click the button again. |
 | E7004 | **Check for updates** couldn't reach the project's GitHub Pages site. | Check your internet connection, then click the button again. |
 | E7005 | A job was open, but its details (description, location) couldn't be read. LinkedIn's job pages have probably changed. | Nothing. The first time each day, a copy of the page is saved to `Downloads\web-job-scraper\debug\` by itself, ready for updating the extension. |
+| E7006 | A scheduled run stopped: LinkedIn asked you to sign in. | Sign in to LinkedIn in Firefox Developer Edition, then schedule another run. |
+| E7007 | A scheduled run stopped: LinkedIn showed a security check. No more runs that day. | Open LinkedIn yourself and complete the check if it asks. Consider fewer runs for a while. |
+| E7008 | A scheduled run stopped because its tab was closed. | Nothing; schedule another run if you like. |
+| E7009 | A scheduled run stopped for another reason (shown next to the code). | Try **Run now**. If it keeps happening, report the message. |
 
 **Job Finder import** (shown in the message after an import, and in `job_finder.log`):
 
@@ -148,12 +176,10 @@ These are carried over from the original plan.
 
 **Indeed and Glassdoor capture**, in the same way as LinkedIn.
 
-**Daily scheduled search:**
-- Once a day, at a random time between 6:00 and 6:20 AM, the extension opens page 1 of LinkedIn's "Jobs based on your preferences" and "Jobs that match your profile".
-- It merges the two lists, opens only jobs not already saved (about 50 at most per run), and records which list each came from. If a section can't be found, it's skipped and logged rather than guessed.
-- A **Start search** button counts as that day's run. Runs need Firefox open and the computer awake. A run missed while asleep happens after waking, on the same day only.
-- Each run gets its own folder, `searches\mm-dd-yyyy-HH.MM\`, with a `run-log.txt` recording login status, counts and warnings. A second run in the same minute gets a `-2` folder.
-- The panel gets **Start search** and **Stop** buttons, live progress (for example "LinkedIn: 23 / 50 opened, 4 new"), login status with a **Log in** button, and each site's daily limit and today's count.
+**More for scheduled runs** (one-off runs are built; see "Scheduled LinkedIn runs" above):
+- Repeating runs, such as every weekday at a random time between 6:00 and 6:20 AM.
+- Each run in its own folder, `searches\mm-dd-yyyy-HH.MM\`, with a `run-log.txt` (login status, counts, warnings).
+- A **Stop** button and live progress (for example "LinkedIn: 7 / 10 opened, 4 new").
 
 **Guardrails for anything automatic:**
 - a human pace, with random pauses
