@@ -204,8 +204,9 @@
   const COMPANY_CARD_LINE = /\b[\d,.+-]+[KkMm]?\s+(?:employees|followers)\b/;
   const POSTED_LINE =/^(?:re)?posted\b|^\d+\s+\w+\s+ago$/i;
 
+  // LinkedIn adds badges to titles: "Web Designer (Verified job)", "Web Designer with verification".
   function cleanTitle(line) {
-    return String(line || "").replace(/\s+with verification$/i, "").trim();
+    return String(line || "").replace(/\s*\(verified job\)\s*$/i, "").replace(/\s+with verification$/i, "").trim();
   }
 
   // The first line that looks like a place, preferring one followed by LinkedIn's "·" separator.

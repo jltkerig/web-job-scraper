@@ -26,7 +26,7 @@ const JOB_PAGE = `<!doctype html><html><head><title>Web Specialist | Acme Health
 </div></div>
 <section><h2>More jobs</h2>
   <a href="https://www.linkedin.com/jobs/search-results/?keywords=Web&amp;currentJobId=4453736853">
-    <p>Web Content Manager</p><p>Arrivia</p><p>Scottsdale, AZ (Hybrid)</p><p>$70K/yr - $90K/yr</p><p>Promoted</p></a>
+    <p>Web Content Manager (Verified job)</p><p>Arrivia</p><p>Scottsdale, AZ (Hybrid)</p><p>$70K/yr - $90K/yr</p><p>Promoted</p></a>
   <a href="https://www.linkedin.com/jobs/search-results/?keywords=Web&amp;currentJobId=4466111503">
     <p>Web Manager</p><p>Rockford Audio</p><p>Tempe, AZ (On-site)</p><p>Applied</p></a>
   <a href="https://www.linkedin.com/jobs/search-results/?keywords=Web&amp;currentJobId=4400000001">
