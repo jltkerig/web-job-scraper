@@ -211,31 +211,23 @@
     for (const [x, y, ch] of list) frame.set(`${ox + x},${oy + y}`, ch);
   }
 
-  // One leg: orange thigh, dark sock, a 3-pixel foot. dx moves the lower leg, lift raises the foot.
+  // One leg: short orange thigh, dark sock, a 3-pixel foot. dx moves the lower leg, lift raises the foot.
   // The knee row covers both the thigh's and the lower leg's columns, so a stepping leg bends instead of
   // touching only at a corner (which looked like the leg coming off).
   function leg(frame, x, top, dx = 0, lift = 0) {
-    for (let y = top; y < top + 4; y += 1) {
+    for (let y = top; y < top + 2; y += 1) {
       frame.set(`${x},${y}`, "D");
       frame.set(`${x + 1},${y}`, "D");
     }
-    for (let i = Math.min(0, dx); i <= 1 + Math.max(0, dx); i += 1) frame.set(`${x + i},${top + 4}`, "K");
-    for (let y = top + 4; y < top + 8 - lift; y += 1) {
+    for (let i = Math.min(0, dx); i <= 1 + Math.max(0, dx); i += 1) frame.set(`${x + i},${top + 2}`, "K");
+    for (let y = top + 2; y < top + 6 - lift; y += 1) {
       frame.set(`${x + dx},${y}`, "K");
       frame.set(`${x + dx + 1},${y}`, "K");
     }
-    for (let i = 0; i < 3; i += 1) frame.set(`${x + dx + i},${top + 8 - lift}`, "K");
+    for (let i = 0; i < 3; i += 1) frame.set(`${x + dx + i},${top + 6 - lift}`, "K");
   }
 
   const LEG_X = [8, 11, 17, 20]; // back, back, front, front
-  // Standing, the head (at 19,4) and body (at 6,13) only met at a corner, so the head looked loose: these pixels
-  // fill the neck between them, with an outline on its back and front.
-  const NECK = [
-    [18, 12, "K"], [19, 12, "O"],
-    [18, 13, "O"], [19, 13, "O"], [20, 13, "O"],
-    [19, 14, "O"], [20, 14, "O"], [21, 14, "O"],
-    [20, 15, "O"], [21, 15, "K"],
-  ];
   // Walk cycle: [dx, lift] for each leg in each of 4 frames.
   const WALK = [
     [[-1, 0], [1, 1], [1, 1], [-1, 0]],
@@ -246,16 +238,15 @@
 
   function stand({ walk = -1, eyes = true, tail = "TAIL", bob = 0, rise = 0 } = {}) {
     const frame = new Map();
-    const top = 21 + bob - rise;
-    stamp(frame, tail === "UP" ? TAIL_UP : TAIL, 0, 7 + bob - rise);
+    const top = 23 + bob - rise;
+    stamp(frame, tail === "UP" ? TAIL_UP : TAIL, 0, 9 + bob - rise);
     LEG_X.forEach((x, i) => {
       const [dx, lift] = walk >= 0 ? WALK[walk][i] : [0, 0];
       leg(frame, x, top, dx, lift);
     });
-    stamp(frame, BODY, 6, 13 + bob - rise);
-    dots(frame, NECK, 0, bob - rise);
-    stamp(frame, HEAD, 19, 4 + bob - rise);
-    dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 19, 4 + bob - rise);
+    stamp(frame, BODY, 6, 15 + bob - rise);
+    stamp(frame, HEAD, 19, 8 + bob - rise);
+    dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 19, 8 + bob - rise);
     return frame;
   }
 
@@ -268,7 +259,7 @@
       for (let y = 21; y < 29; y += 1) frame.set(`${x},${y}`, y < 24 ? "D" : "K");
     }
     for (let i = 0; i < 4; i += 1) frame.set(`${17 + i},29`, "K");
-    const headY = alert ? 9 : 10;
+    const headY = alert ? 11 : 12;
     stamp(frame, HEAD, 12, headY);
     dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 12, headY);
     return frame;
