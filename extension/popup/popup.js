@@ -107,5 +107,69 @@ document.getElementById("check-update").addEventListener("click", () => {
     .catch((error) => { message.textContent = String(error.message || error); });
 });
 
+// ---------- the fox and the newest flowers ----------
+
+const gardenCanvas = document.getElementById("garden");
+const flowerInfo = document.getElementById("flower-info");
+const petEnabled = document.getElementById("pet-enabled");
+const petSpeed = document.getElementById("pet-speed");
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+const gardenCtx = gardenCanvas.getContext("2d");
+const ratio = window.devicePixelRatio || 1;
+gardenCanvas.width = 340 * ratio;
+gardenCanvas.height = 80 * ratio;
+gardenCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
+gardenCtx.imageSmoothingEnabled = false;
+// The panel fox only sits and naps (no walking).
+const fox = new Pet.Pet({ width: 340, height: 80, scale: 2, panel: true, reduced: reducedMotion.matches });
+let lastFrame = 0;
+
+function animate(now) {
+  fox.update(now, lastFrame ? Math.min(now - lastFrame, 100) : 16);
+  lastFrame = now;
+  fox.draw(gardenCtx, now);
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+function showPet(result) {
+  petEnabled.checked = result.pet.enabled;
+  petSpeed.value = result.pet.speed;
+  fox.setOptions({ speed: result.pet.speed, reduced: reducedMotion.matches });
+  fox.setFlowers(result.garden || []);
+}
+
+gardenCanvas.addEventListener("click", (event) => {
+  const rect = gardenCanvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const inside = (box) => x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h;
+  const flower = fox.flowerBoxes().find(inside);
+  if (flower) {
+    const job = flower.job;
+    const stage = { sprout: "Seen", bloom: "Opened", sparkle: "Applied", wilt: "No longer open" }[Pet.flowerStage(job)];
+    const link = el("a", { href: job.url, textContent: "Open job" });
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (job.url.startsWith("https://www.linkedin.com/")) browser.tabs.create({ url: job.url });
+    });
+    flowerInfo.replaceChildren(
+      el("strong", { textContent: job.title || "Job" }),
+      el("div", { textContent: [job.company, job.salary, stage].filter(Boolean).join(" · ") }),
+      link,
+    );
+    flowerInfo.hidden = false;
+    return;
+  }
+  flowerInfo.hidden = true;
+  if (inside(fox.foxBox())) fox.clicked();
+});
+
+petEnabled.addEventListener("change", () => send({ type: "set-pet", enabled: petEnabled.checked }).then(showPet));
+petSpeed.addEventListener("change", () => send({ type: "set-pet", speed: petSpeed.value }).then(showPet));
+
 document.getElementById("version").textContent = `v${browser.runtime.getManifest().version}`;
-send({ type: "popup-state" }).then(show);
+send({ type: "popup-state" }).then((result) => {
+  show(result);
+  showPet(result);
+});

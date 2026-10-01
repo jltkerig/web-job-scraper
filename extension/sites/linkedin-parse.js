@@ -201,7 +201,8 @@
   // the "About the job" heading, the order of the lines at the top of a job, and the lines inside each job link.
   const LOCATION_LINE = /,\s*[A-Z]{2}\b|\bremote\b|united states|metropolitan area|\barea\b|^greater\s/i;
   const WORKPLACE_LINE = /^(on-site|onsite|remote|hybrid)$/i;
-  const POSTED_LINE = /^(?:re)?posted\b|^\d+\s+\w+\s+ago$/i;
+  const COMPANY_CARD_LINE = /\b[\d,.+-]+[KkMm]?\s+(?:employees|followers)\b/;
+  const POSTED_LINE =/^(?:re)?posted\b|^\d+\s+\w+\s+ago$/i;
 
   function cleanTitle(line) {
     return String(line || "").replace(/\s+with verification$/i, "").trim();
@@ -286,8 +287,9 @@
           (node) => idFromUrl(node.getAttribute("href")))) : new Set();
         if (box && ids.size === 1) card = lines(box);
       }
-      // A lone "On-site" link (the work-place tag on a job's own page) is not a card.
-      if (card.length < 2 || WORKPLACE_LINE.test(card[0])) continue;
+      // A lone "On-site" link (the work-place tag on a job's own page) is not a card, and neither is a company card
+      // ("201-500 employees", "12K followers").
+      if (card.length < 2 || WORKPLACE_LINE.test(card[0]) || card.some((line) => COMPANY_CARD_LINE.test(line))) continue;
       const job = blank(id);
       job.title = cleanTitle(card[0]);
       job.company = card[1];

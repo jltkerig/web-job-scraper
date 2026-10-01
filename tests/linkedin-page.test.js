@@ -29,6 +29,8 @@ const JOB_PAGE = `<!doctype html><html><head><title>Web Specialist | Acme Health
     <p>Web Content Manager</p><p>Arrivia</p><p>Scottsdale, AZ (Hybrid)</p><p>$70K/yr - $90K/yr</p><p>Promoted</p></a>
   <a href="https://www.linkedin.com/jobs/search-results/?keywords=Web&amp;currentJobId=4466111503">
     <p>Web Manager</p><p>Rockford Audio</p><p>Tempe, AZ (On-site)</p><p>Applied</p></a>
+  <a href="https://www.linkedin.com/jobs/search-results/?keywords=Web&amp;currentJobId=4400000001">
+    <p>Perplexity</p><p>201-500 employees · Software Development</p></a>
 </section></main></body></html>`;
 
 function read(html, url) {

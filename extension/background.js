@@ -9,6 +9,8 @@ const SAVE_EVERY_MS = 5 * 60 * 1000;
 const KEEP_DAYS = 30;
 const ROOT = "web-job-scraper";
 const MAX_DEBUG_RESPONSES = 8;
+const MAX_FLOWERS = 500;
+const PET_DEFAULTS = { enabled: true, speed: "normal", sites: { linkedin: true } };
 // Error codes shown in the panel (E7xxx; Job Finder's import uses E6xxx). Listed in the README.
 const ERRORS = {
   save: "E7001", // the day's file could not be saved to the downloads folder
@@ -25,6 +27,7 @@ const state = {
   lastSave: {}, // site -> ISO time
   broken: {}, // site -> { url, since }
   errors: {}, // site -> { code, message, at } for the last failed save
+  garden: [], // newest first: one flower per captured job, kept beyond the 30-day job store (see plant())
   noDetails: {}, // site -> { jobId, url, since, saved } when an open job's details could not be read
   autoSavedDay: {}, // site -> day a page copy was last saved automatically (at most one a day)
 };
@@ -55,13 +58,16 @@ function stamp(date = new Date()) {
 
 async function load() {
   const saved = await browser.storage.local.get(
-    ["jobs", "settings", "dirty", "lastSave", "broken", "errors", "noDetails", "autoSavedDay"]);
+    ["jobs", "settings", "dirty", "lastSave", "broken", "errors", "noDetails", "autoSavedDay", "garden"]);
+  state.garden = saved.garden || [];
   state.errors = saved.errors || {};
   state.noDetails = saved.noDetails || {};
   state.autoSavedDay = saved.autoSavedDay || {};
   state.jobs = saved.jobs || {};
   state.settings = { ...state.settings, ...(saved.settings || {}) };
   state.settings.enabled = { linkedin: true, ...(state.settings.enabled || {}) };
+  const pet = state.settings.pet || {};
+  state.settings.pet = { ...PET_DEFAULTS, ...pet, sites: { ...PET_DEFAULTS.sites, ...(pet.sites || {}) } };
   state.dirty = new Set(saved.dirty || []);
   state.lastSave = saved.lastSave || {};
   state.broken = saved.broken || {};
@@ -81,7 +87,7 @@ function persist() {
   clearTimeout(persistTimer);
   return browser.storage.local.set({
     jobs: state.jobs, settings: state.settings, dirty: [...state.dirty], lastSave: state.lastSave, broken: state.broken,
-    errors: state.errors, noDetails: state.noDetails, autoSavedDay: state.autoSavedDay,
+    errors: state.errors, noDetails: state.noDetails, autoSavedDay: state.autoSavedDay, garden: state.garden,
   });
 }
 
@@ -111,11 +117,33 @@ function sameContent(a, b) {
   return strip(a) === strip(b);
 }
 
+// ---------- garden ----------
+
+// One flower per captured job, newest first. The garden keeps only what a flower needs, so it outlives the
+// 30-day job store. A flower's stage follows the job: sprout (seen), bloom (opened), sparkle (applied), wilt (closed).
+function plant(record) {
+  const key = `${record.site}:${record.job_id}`;
+  const flower = {
+    key, site: record.site, title: record.title, company: record.company, salary: record.salary,
+    url: record.url, level: record.level, applied: record.applied, closed: record.closed,
+  };
+  const at = state.garden.findIndex((item) => item.key === key);
+  if (at >= 0) {
+    state.garden[at] = { ...state.garden[at], ...flower };
+    return false;
+  }
+  state.garden.unshift({ ...flower, planted: new Date().toISOString() });
+  if (state.garden.length > MAX_FLOWERS) state.garden.length = MAX_FLOWERS;
+  return true;
+}
+
+// Saves captured jobs. Returns how many were new (never captured before), which makes the fox pounce.
 function addJobs(site, jobs, tabId) {
-  if (!state.settings.enabled[site] || !jobs.length) return;
+  if (!state.settings.enabled[site] || !jobs.length) return 0;
   const now = new Date().toISOString();
   const today = localDay();
   let changed = false;
+  let added = 0;
   for (const job of jobs) {
     if (!job || job.site !== site || !job.job_id) continue;
     const key = `${site}:${job.job_id}`;
@@ -126,6 +154,7 @@ function addJobs(site, jobs, tabId) {
     if (!old || !sameDay || !sameContent(old, record)) {
       state.dirty.add(`${site}|${today}`);
       changed = true;
+      if (record.title && plant(record)) added += 1;
     }
   }
   if (tabId !== undefined && tabId >= 0) tabCounts.set(tabId, (tabCounts.get(tabId) || 0) + jobs.length);
@@ -141,6 +170,15 @@ function addJobs(site, jobs, tabId) {
     persistSoon();
     updateBadge();
   }
+  // The fox on that tab pounces, and its strip shows the new flowers.
+  if (changed && tabId !== undefined && tabId >= 0) {
+    browser.tabs.sendMessage(tabId, { type: "pet-update", added, ...petState() }).catch(() => {});
+  }
+  return added;
+}
+
+function petState() {
+  return { pet: state.settings.pet, garden: state.garden.slice(0, 7) };
 }
 
 // ---------- writing files ----------
@@ -335,6 +373,7 @@ function popupState() {
     sites,
     needsLookTotal: needsLook.length,
     needsLook: needsLook.slice(0, 30).map(({ site, title, company, url }) => ({ site, title, company, url })),
+    ...petState(),
   };
 }
 
@@ -413,6 +452,17 @@ browser.runtime.onMessage.addListener((message, sender) => {
         return true;
       case "popup-state":
         return popupState();
+      case "pet-state":
+        return petState();
+      case "set-pet": {
+        const pet = state.settings.pet;
+        if (typeof message.enabled === "boolean") pet.enabled = message.enabled;
+        if (["calm", "normal", "playful"].includes(message.speed)) pet.speed = message.speed;
+        await persist();
+        // Every open job-site tab updates its fox straight away.
+        for (const [id] of tabSites) browser.tabs.sendMessage(id, { type: "pet-update", added: 0, ...petState() }).catch(() => {});
+        return popupState();
+      }
       case "set-enabled":
         state.settings.enabled[message.site] = Boolean(message.enabled);
         if (!message.enabled) delete state.broken[message.site];
