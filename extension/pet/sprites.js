@@ -12,7 +12,11 @@
     G: "#4a9b3a", // leaf green
     g: "#2f6b26", // stem green
     B: "#4f6fd9", // bluebell
-    b: "#9fb2f5", // bluebell highlight
+    b: "#9fb2f5", // petal highlight
+    p: "#4a1838", // speckles inside a foxglove bell
+    Y: "#f5c518", // bee yellow
+    V: "#d6ecff", // bee wing
+    q: "#7aa7cc", // bee wing edge
     k: "#1f3a1a", // flower outline, so flowers show on a white page
     E: "#7cbf5a", // grass
     e: "#5a9e3e", // grass shade
@@ -90,24 +94,51 @@
     ".KK.......",
   ];
 
-  // ---------- garden: one flower per job still to collect (9 x 14, bottom row on the ground) ----------
-  // B and b are the petal colours; each flower gets its own pair from PETALS.
+  // ---------- garden: one foxglove per job still to collect (9 x 20, bottom row on the ground) ----------
+  // A tall spike of drooping bells, smaller toward the top, with speckled throats (p). B and b are the petal
+  // colours; each flower gets its own pair from PETALS.
 
-  const BLOOM = [
-    "...g.....",
-    "...g.BBB.",
-    "...ggBBBb",
-    "...g..bB.",
-    ".BBBg....",
-    "BBBbg....",
-    ".Bb.g....",
-    "....gBBB.",
-    "....gBBBb",
-    "....g.bB.",
-    ".G..g....",
-    "..G.g.G..",
-    "...GgG...",
+  const FOXGLOVE = [
     "....g....",
+    "....B....",
+    "...BgB...",
+    "....g....",
+    "..BBg....",
+    "..Bbg.BB.",
+    "....gBb..",
+    ".BBBg....",
+    ".BpBgBBB.",
+    "..b.gBpB.",
+    "....g.b..",
+    "BBB.g....",
+    "BpBBg.BBB",
+    ".b..gBBpB",
+    "....g..b.",
+    "....g....",
+    ".GG.g.GG.",
+    "GGG.g.GGG",
+    ".GGGgGGG.",
+    "....g....",
+  ];
+
+  // ---------- the bee (9 x 6): yellow and black stripes, pale blue wings that flap ----------
+  const BEE = [
+    [
+      "...qq....",
+      "..qVVq...",
+      ".KYYKYYK.",
+      "KKYYKYYKK",
+      ".KYYKYYK.",
+      ".........",
+    ],
+    [
+      ".........",
+      "...qq....",
+      ".KYYKYYK.",
+      "KKYYKYYKK",
+      ".KYqVqYK.",
+      "....q....",
+    ],
   ];
 
   // ---------- composing frames ----------
@@ -219,14 +250,14 @@
     leap: stand({ walk: 0, tail: "UP", rise: 4 }),
   };
 
-  // Petal colours for flowers: [petal, highlight] replacing the bluebell's B and b.
+  // Foxglove colours: [petal, lip] replacing B and b.
   const PETALS = [
-    ["#4f6fd9", "#9fb2f5"], // blue
-    ["#8a4fd9", "#c9a6f7"], // violet
-    ["#e0559b", "#f7a8cf"], // pink
-    ["#e04848", "#f7a0a0"], // red
-    ["#e8a821", "#f7dc7a"], // gold
-    ["#22a094", "#8be0d6"], // teal
+    ["#a8327f", "#d77ab4"], // magenta
+    ["#e0609f", "#f5a9cf"], // pink
+    ["#9a6fd0", "#c9b0ef"], // lilac
+    ["#ee9a5c", "#f7c9a0"], // apricot
+    ["#eadbe6", "#ffffff"], // cream
+    ["#c2305a", "#e88aa6"], // deep rose
   ];
 
   // Draws a frame onto a canvas context at (x, y) in canvas pixels. flip mirrors it to face left; colors replaces
@@ -241,7 +272,8 @@
   }
 
   // A one-pixel dark outline around every coloured pixel, so thin stems and pale petals stand out on any page.
-  // The flower moves one pixel in, making the frame 11 x 15.
+  // The flower moves one pixel in, making the frame 2 wider and 1 taller (no outline under the stem: it's in the
+  // ground).
   function outlined(grid) {
     const frame = new Map();
     stamp(frame, grid, 1, 1);
@@ -250,18 +282,25 @@
       const [x, y] = key.split(",").map(Number);
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const near = `${x + dx},${y + dy}`;
-        if (!frame.has(near) && y + dy <= 14) ring.set(near, "k");
+        if (!frame.has(near) && y + dy <= grid.length) ring.set(near, "k");
       }
     }
     for (const [key, ch] of ring) frame.set(key, ch);
     return frame;
   }
 
-  const FLOWER = outlined(BLOOM);
+  const FLOWER = outlined(FOXGLOVE);
+  const BEE_FRAMES = BEE.map((grid) => {
+    const frame = new Map();
+    stamp(frame, grid, 0, 0);
+    return frame;
+  });
 
   // A tuft of grass, 6 x 3, repeated along the ground.
   const GRASS = new Map();
   stamp(GRASS, ["..E..E", ".EeEEe", "eeeeee"], 0, 0);
 
-  root.PetSprites = { PALETTE, PETALS, FOX, FLOWER, FLOWER_SIZE: [11, 15], GRASS, FOX_SIZE: 32, draw };
+  root.PetSprites = {
+    PALETTE, PETALS, FOX, FLOWER, FLOWER_SIZE: [11, 21], BEE: BEE_FRAMES, BEE_SIZE: [9, 6], GRASS, FOX_SIZE: 32, draw,
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);

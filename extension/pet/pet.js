@@ -6,7 +6,7 @@
 
   const S = root.PetSprites;
   const SPEEDS = { calm: 0.6, normal: 1, playful: 1.6 };
-  const FLOWER_GAP = 12; // sprite pixels from one flower to the next (times the scale on the canvas)
+  const FLOWER_GAP = 16; // sprite pixels from one flower to the next (times the scale on the canvas)
   const MAX_FLOWERS = 10; // the newest 10 jobs still to collect; more was too busy
 
   function rand(min, max) {
@@ -44,6 +44,8 @@
       this.reduced = false;
       this.setOptions(options);
       this.blinkAt = performance.now() + rand(2500, 6000);
+      this.bee = null;
+      this.nextBeeAt = performance.now() + rand(60000, 180000);
       this.setState("sit", 4000);
     }
 
@@ -141,6 +143,62 @@
       }
       if (now >= this.blinkAt + 160) this.blinkAt = now + rand(2500, 6000);
       this.popups = this.popups.filter((popup) => now - popup.born < 1400);
+      this.updateBee(now, dt);
+    }
+
+    // ---------- the bee ----------
+
+    // Every few minutes, while there are foxgloves, a bee flies in from one side, visits one to three of them and
+    // leaves by the other side. Not in the panel, and not with reduce animations on.
+    updateBee(now, dt) {
+      const [bw, bh] = S.BEE_SIZE.map((n) => n * this.scale);
+      if (!this.bee) {
+        if (this.panel || this.reduced || !this.flowers.length || now < this.nextBeeAt) return;
+        const fromLeft = Math.random() < 0.5;
+        const picks = [...this.flowers].sort(() => Math.random() - 0.5).slice(0, 1 + Math.floor(rand(0, 3)));
+        this.bee = {
+          x: fromLeft ? -bw : this.width, y: this.height * 0.2, facingLeft: !fromLeft,
+          stops: picks.map((flower) => flower.job.key), hoverUntil: 0, exitX: fromLeft ? this.width : -bw,
+        };
+        if (this.state === "sit" || this.state === "walk") this.setState("watch", 2500); // the fox looks up
+        return;
+      }
+      const bee = this.bee;
+      if (bee.hoverUntil) {
+        if (now < bee.hoverUntil) return;
+        bee.hoverUntil = 0;
+        bee.stops.shift();
+      }
+      // Next stop: a foxglove still in the garden (it may have been collected meanwhile), else off-screen.
+      let target = null;
+      while (bee.stops.length && !target) {
+        const flower = this.flowers.find((item) => item.job.key === bee.stops[0]);
+        if (flower) {
+          const [fw, fh] = S.FLOWER_SIZE;
+          target = { x: flower.x + (fw * this.scale - bw) / 2, y: this.groundY() - fh * this.scale - bh, stop: true };
+        } else {
+          bee.stops.shift();
+        }
+      }
+      if (!target) target = { x: bee.exitX, y: this.height * 0.15, stop: false };
+      const dx = target.x - bee.x;
+      const dy = target.y - bee.y;
+      const distance = Math.hypot(dx, dy);
+      const step = 45 * this.scale * this.speed * (dt / 1000);
+      if (Math.abs(dx) > 1) bee.facingLeft = dx < 0;
+      if (distance <= step) {
+        bee.x = target.x;
+        bee.y = target.y;
+        if (target.stop) {
+          bee.hoverUntil = now + rand(1500, 2500); // a little visit
+        } else {
+          this.bee = null;
+          this.nextBeeAt = now + rand(90000, 240000) / this.speed;
+        }
+      } else {
+        bee.x += (dx / distance) * step;
+        bee.y += (dy / distance) * step;
+      }
     }
 
     // ---------- drawing ----------
@@ -196,6 +254,11 @@
       const { frame, lift = 0 } = this.pose(now);
       const size = S.FOX_SIZE * this.scale;
       S.draw(ctx, frame, this.x, this.groundY() - size - lift, this.scale, this.facingLeft, S.FOX_SIZE);
+      if (this.bee) {
+        const bob = Math.sin(now / 180) * 1.5 * this.scale;
+        S.draw(ctx, S.BEE[Math.floor(now / 80) % 2], this.bee.x, this.bee.y + bob, this.scale, this.bee.facingLeft,
+          S.BEE_SIZE[0]);
+      }
 
       ctx.font = `bold ${5 * this.scale}px monospace`;
       ctx.textAlign = "center";

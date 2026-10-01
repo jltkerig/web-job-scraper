@@ -106,6 +106,36 @@ test("the panel fox never walks, and the strip fox walks within the strip", () =
   }
 });
 
+test("after a while a bee visits a foxglove or two, then flies away", () => {
+  const pet = fox();
+  pet.setFlowers(waiting(5));
+  let now = performance.now();
+  pet.update(now, 16);
+  assert.strictEqual(pet.bee, null); // not straight away
+  now = pet.nextBeeAt + 1;
+  pet.update(now, 16);
+  assert.ok(pet.bee, "no bee after the wait");
+  const visits = pet.bee.stops.length;
+  assert.ok(visits >= 1 && visits <= 3);
+  let hovered = 0;
+  for (let i = 0; i < 20000 && pet.bee; i += 1) {
+    now += 16;
+    pet.update(now, 16);
+    if (pet.bee && pet.bee.hoverUntil) hovered += 1;
+  }
+  assert.strictEqual(pet.bee, null, "the bee never left");
+  assert.ok(hovered > 0, "the bee never stopped at a flower");
+  assert.ok(pet.nextBeeAt > now, "no wait before the next bee");
+});
+
+test("no bee with an empty garden, in the panel, or with reduce animations on", () => {
+  for (const pet of [fox(), fox({ width: 340, panel: true }), fox({ reduced: true })]) {
+    pet.setFlowers(pet.panel || pet.reduced ? waiting(3) : []);
+    pet.update(pet.nextBeeAt + 1, 16);
+    assert.strictEqual(pet.bee, null);
+  }
+});
+
 test("there is no hover state any more", () => {
   assert.strictEqual("hover" in fox(), false);
   assert.strictEqual(globalThis.PetSprites.FOX.peek, undefined);
