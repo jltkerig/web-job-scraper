@@ -11,6 +11,10 @@
     <h1>Web Job Scraper</h1>
     <span id="version" class="version"></span>
   </header>
+  <section class="garden" aria-label="Your fox and garden: one flower per job">
+    <canvas id="garden" width="340" height="80"></canvas>
+    <div id="flower-info" class="flower-info" hidden></div>
+  </section>
   <main>
     <section id="sites"></section>
     <div class="actions">
@@ -22,11 +26,24 @@
       <p class="hint">These jobs had no location on their card. Open one to capture its full details.</p>
       <ul id="needs-list"></ul>
     </section>
+    <section class="pet-settings">
+      <h2>Fox</h2>
+      <label><input id="pet-enabled" type="checkbox"> Show on LinkedIn job pages</label>
+      <label>Speed
+        <select id="pet-speed">
+          <option value="calm">Calm</option>
+          <option value="normal">Normal</option>
+          <option value="playful">Playful</option>
+        </select>
+      </label>
+    </section>
     <div class="actions">
       <button id="save-page" type="button" title="Saves this LinkedIn page to web-job-scraper\debug in your downloads folder so capture can be fixed">Save this page for fixing</button>
     </div>
     <p id="message" role="status"></p>
   </main>
+  <script src="../pet/sprites.js"></script>
+  <script src="../pet/pet.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

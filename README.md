@@ -42,6 +42,20 @@ It only reads the pages you open yourself. It never clicks, scrolls, or opens an
 
 The number on the icon is how many new jobs were captured today.
 
+## The fox and the garden
+
+A pixel-art fox lives in a strip at the bottom-right of LinkedIn's job pages and at the top of the panel.
+
+- **Moving it:** drag the fox to move the strip. The rest of the strip lets clicks through to the page.
+- **Reactions:** it watches with its ears up while you scroll job lists, and pounces with a **+1** when a new job is captured (waking up first if it was napping). Click it to wake it or make it hop. Hover over it while it naps and it opens one eye.
+- **Idle life:** every 20 to 60 seconds it picks something new: walking along the strip, sitting, or napping (more often late at night).
+- **Garden:** every captured job plants a bluebell. A **sprout** means seen, a **bloom** means opened, a **sparkle** means applied, and a **wilt** means no longer open. The strip and panel show the newest 7 flowers. Click one for the job's title, company and pay, and a link to open it.
+- **Settings (panel):** show it on LinkedIn or not, and its speed (calm, normal, playful).
+- It pauses when the tab is hidden. With Windows' "reduce animations" setting on, it only sits and blinks.
+- It's drawn entirely in the extension's own code (no image files) inside a sealed-off part of the page, so LinkedIn's styles can't break it. Turning it off removes it from the page completely.
+
+Still to come: digging, sniffing flowers, stretching, the job scroll, the butterfly, the sunrise intro and a full garden view.
+
 ## What gets imported
 
 Job Finder checks each job with the same rules as its own search, using your **profile's** job titles and cities (not your last search):
