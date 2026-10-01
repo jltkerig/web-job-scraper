@@ -50,6 +50,7 @@ const state = {
   runs: [], // scheduled LinkedIn runs and their result tags (runs.js)
   securityCheckDay: null, // the day LinkedIn last showed a security check during a run: no more runs that day
   runAlert: null, // { code, message } of the last stopped run, until dismissed
+  badgeClearedAt: null, // ISO time "Clear count" was last clicked; the icon's number counts jobs found after it
 };
 const tabCounts = new Map(); // tabId -> jobs received since the tab's last page view
 const tabSites = new Map(); // tabId -> site
@@ -79,7 +80,8 @@ function stamp(date = new Date()) {
 async function load() {
   const saved = await browser.storage.local.get(
     ["jobs", "settings", "dirty", "lastSave", "broken", "errors", "noDetails", "autoSavedDay", "runs", "securityCheckDay",
-      "runAlert"]);
+      "runAlert", "badgeClearedAt"]);
+  state.badgeClearedAt = saved.badgeClearedAt || null;
   state.errors = saved.errors || {};
   state.runs = saved.runs || [];
   state.securityCheckDay = saved.securityCheckDay || null;
@@ -113,7 +115,7 @@ function persist() {
   return browser.storage.local.set({
     jobs: state.jobs, settings: state.settings, dirty: [...state.dirty], lastSave: state.lastSave, broken: state.broken,
     errors: state.errors, noDetails: state.noDetails, autoSavedDay: state.autoSavedDay, runs: state.runs,
-    securityCheckDay: state.securityCheckDay, runAlert: state.runAlert,
+    securityCheckDay: state.securityCheckDay, runAlert: state.runAlert, badgeClearedAt: state.badgeClearedAt,
   });
 }
 
@@ -347,10 +349,14 @@ function updateBadge() {
     return;
   }
   const today = localDay();
-  const fresh = Object.values(state.jobs).filter((job) => localDay(new Date(job.first_seen)) === today).length;
+  // New today, and found since "Clear count" was last clicked.
+  const cleared = state.badgeClearedAt || "";
+  const fresh = Object.values(state.jobs)
+    .filter((job) => localDay(new Date(job.first_seen)) === today && job.first_seen > cleared).length;
   browser.browserAction.setBadgeText({ text: fresh ? String(fresh) : "" });
   browser.browserAction.setBadgeBackgroundColor({ color: "#2f6fd6" });
-  browser.browserAction.setTitle({ title: `Job Scraper: ${fresh} new job${fresh === 1 ? "" : "s"} today` });
+  const since = cleared && localDay(new Date(cleared)) === today ? " since you cleared the count" : " today";
+  browser.browserAction.setTitle({ title: `Job Scraper: ${fresh} new job${fresh === 1 ? "" : "s"}${since}` });
 }
 
 async function pageSettled(site, message, tabId) {
@@ -528,6 +534,11 @@ browser.runtime.onMessage.addListener((message, sender) => {
       case "set-enabled":
         state.settings.enabled[message.site] = Boolean(message.enabled);
         if (!message.enabled) delete state.broken[message.site];
+        await persist();
+        updateBadge();
+        return popupState();
+      case "clear-badge":
+        state.badgeClearedAt = new Date().toISOString();
         await persist();
         updateBadge();
         return popupState();
