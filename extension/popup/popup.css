@@ -106,19 +106,7 @@ button:hover { border-color: var(--accent); }
   border-bottom: 1px solid var(--line);
   background: linear-gradient(var(--sky), var(--sky) 88%, var(--grass) 88%);
 }
-.garden canvas { width: 340px; height: 116px; image-rendering: pixelated; display: block; cursor: pointer; }
-.flower-info {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  top: 6px;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--bg);
-  font-size: 12px;
-}
-.flower-info a { color: var(--accent); }
+.garden canvas { width: 340px; height: 116px; image-rendering: pixelated; display: block; }
 .pet-settings { margin: 10px 0; }
 .pet-settings label { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
 .pet-settings select { font: inherit; }

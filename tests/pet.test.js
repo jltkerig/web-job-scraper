@@ -1,46 +1,67 @@
-// The fox's behaviour (no drawing). Run with: npm test
+// The fox and its garden (no drawing). Run with: npm test
 const test = require("node:test");
 const assert = require("node:assert");
 require("../extension/pet/sprites.js");
 require("../extension/pet/pet.js");
 
-const { Pet, flowerStage } = globalThis.Pet;
+const { Pet } = globalThis.Pet;
+const FOX_WIDTH = 32 * 3;
 
 function fox(options = {}) {
-  return new Pet({ width: 330, height: 76, scale: 2, ...options });
+  return new Pet({ width: 1200, height: 128, scale: 3, ...options });
 }
 
-test("flowers follow the job: sprout, bloom, sparkle, wilt", () => {
-  assert.strictEqual(flowerStage({ level: "seen" }), "sprout");
-  assert.strictEqual(flowerStage({ level: "opened" }), "bloom");
-  assert.strictEqual(flowerStage({ level: "opened", applied: true }), "sparkle");
-  assert.strictEqual(flowerStage({ level: "opened", applied: true, closed: true }), "wilt");
+function waiting(count) {
+  // Jobs still to collect, newest first, as the background sends them.
+  return Array.from({ length: count }, (_, i) => ({ key: `linkedin:${i}`, title: `job ${i}` }));
+}
+
+test("the garden fills the width with the newest flower on the right, leaving room for the fox", () => {
+  const pet = fox();
+  pet.setFlowers(waiting(200));
+  assert.ok(pet.flowers.length > 20, `only ${pet.flowers.length} flowers on a wide strip`);
+  const last = pet.flowers[pet.flowers.length - 1];
+  assert.strictEqual(last.job.title, "job 0");
+  assert.ok(last.x + 11 * 3 <= 1200 - FOX_WIDTH, "flowers run into the fox's corner");
 });
 
-test("the strip shows the newest 7 flowers, newest on the right", () => {
-  const pet = fox();
-  pet.setFlowers(Array.from({ length: 9 }, (_, i) => ({ title: `job ${i}`, level: "seen" }))); // newest first
-  assert.strictEqual(pet.flowers.length, 7);
-  assert.strictEqual(pet.flowers[6].job.title, "job 0");
-  assert.ok(pet.flowers[6].x > pet.flowers[0].x);
-  assert.ok(pet.flowerBoxes().every((box) => box.x + box.w <= 330));
+test("a narrow window shows fewer flowers, and resizing lays them out again", () => {
+  const pet = fox({ width: 340 });
+  pet.setFlowers(waiting(50));
+  const narrow = pet.flowers.length;
+  pet.resize(1200);
+  assert.ok(pet.flowers.length > narrow);
+  pet.resize(200);
+  assert.ok(pet.x <= 200 - FOX_WIDTH + 1e-9);
 });
 
-test("a captured job makes the fox pounce with +1, and wakes it first if napping", () => {
+test("each job keeps its flower colour", () => {
   const pet = fox();
+  pet.setFlowers(waiting(3));
+  const first = pet.flowers.map((flower) => flower.colors.B);
+  pet.setFlowers(waiting(3));
+  assert.deepStrictEqual(pet.flowers.map((flower) => flower.colors.B), first);
+});
+
+test("when the garden is empty the fox sleeps, and a new job wakes it with +1", () => {
+  const pet = fox();
+  pet.setFlowers(waiting(2));
+  assert.strictEqual(pet.state, "sit");
+  pet.setFlowers([]);
+  assert.strictEqual(pet.state, "sleep");
+  pet.nextIdle();
+  assert.strictEqual(pet.state, "sleep"); // still nothing to collect
+
   pet.captured(1);
-  assert.strictEqual(pet.state, "pounce");
-  assert.strictEqual(pet.popups[0].text, "+1");
-
-  pet.setState("sleep", 60000);
-  pet.captured(2);
   assert.strictEqual(pet.state, "stretch");
+  assert.strictEqual(pet.popups[0].text, "+1");
   pet.update(pet.stateEnd + 1, 16);
   assert.strictEqual(pet.state, "pounce");
 });
 
-test("scrolling makes it watch, but not while napping", () => {
+test("scrolling makes it watch, but not while asleep", () => {
   const pet = fox();
+  pet.setFlowers(waiting(1));
   pet.scrolling();
   assert.strictEqual(pet.state, "watch");
   pet.setState("sleep", 60000);
@@ -50,6 +71,7 @@ test("scrolling makes it watch, but not while napping", () => {
 
 test("with reduce animations on it only sits and blinks", () => {
   const pet = fox({ reduced: true });
+  pet.setFlowers([]);
   pet.captured(1);
   pet.scrolling();
   for (let i = 0; i < 20; i += 1) pet.nextIdle();
@@ -58,11 +80,13 @@ test("with reduce animations on it only sits and blinks", () => {
 });
 
 test("the panel fox never walks, and the strip fox walks within the strip", () => {
-  const panel = fox({ panel: true });
+  const panel = fox({ width: 340, panel: true });
   const strip = fox();
+  panel.setFlowers(waiting(3));
+  strip.setFlowers(waiting(3));
   const realRandom = Math.random;
   try {
-    Math.random = () => 0.99; // never a nap, always the "walk" branch where allowed
+    Math.random = () => 0.99; // never a nap: the "walk" branch where allowed
     for (let i = 0; i < 10; i += 1) {
       panel.nextIdle();
       assert.notStrictEqual(panel.state, "walk");
@@ -70,13 +94,18 @@ test("the panel fox never walks, and the strip fox walks within the strip", () =
     strip.nextIdle();
     assert.strictEqual(strip.state, "walk");
     let now = performance.now();
-    for (let i = 0; i < 2000 && strip.state === "walk"; i += 1) {
+    for (let i = 0; i < 5000 && strip.state === "walk"; i += 1) {
       now += 16;
       strip.update(now, 16);
-      assert.ok(strip.x >= 0 && strip.x <= 330 - 64);
+      assert.ok(strip.x >= 0 && strip.x <= 1200 - FOX_WIDTH);
     }
     assert.notStrictEqual(strip.state, "walk"); // it arrived and sat down
   } finally {
     Math.random = realRandom;
   }
+});
+
+test("there is no hover state any more", () => {
+  assert.strictEqual("hover" in fox(), false);
+  assert.strictEqual(globalThis.PetSprites.FOX.peek, undefined);
 });
