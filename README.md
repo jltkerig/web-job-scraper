@@ -46,7 +46,7 @@ The number on the icon is how many new jobs were captured today.
 
 A pixel-art fox and its garden run along the whole bottom of LinkedIn's job pages, and across the top of the panel. They're there to make browsing less boring, so they change as you work but aren't something to manage.
 
-- **Garden:** each flower is a job the extension has spotted in a list but not collected yet. Opening the job collects its details, and its flower disappears; jobs LinkedIn says are closed disappear too. So the garden grows as jobs turn up and shrinks as you work through them. Each job keeps its own colour (blue, violet, pink, red, gold or teal), the newest is on the right, and as many show as fit the window.
+- **Garden:** each flower is a job the extension has spotted in a list but not collected yet. Opening the job collects its details, and its flower disappears; jobs LinkedIn says are closed disappear too. So the garden grows as jobs turn up and shrinks as you work through them. Each job keeps its own colour (blue, violet, pink, red, gold or teal), the newest is on the right, and up to 10 show (the newest jobs still to collect).
 - **Fox:** when there's nothing left to collect, the fox's work is done and it sleeps. A new job wakes it with a stretch and a pounce, and a **+1** floats up. While there are flowers it walks, sits and naps now and then (more often late at night), and watches with its ears up while you scroll job lists.
 - **Clicks:** clicks pass through the strip to the page. The fox is the only thing that reacts: click it to wake it or make it hop.
 - **Settings (panel):** show it on LinkedIn or not, and its speed (calm, normal, playful).
