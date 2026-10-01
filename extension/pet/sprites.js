@@ -27,24 +27,31 @@
 
   // ---------- fox parts (facing right; the frame is 32 x 32, ground at row 30) ----------
 
-  // Pink inner ears, a big shiny eye, a blush on the cheek and a little two-pixel nose.
-  const HEAD = [
-    "..K...K.....",
-    ".KPK.KPK....",
-    ".KPPKKPPK...",
-    "KOOOOOOOOK..",
-    "KOOOOOKWOOK.",
-    "KOOOOOKKOOOK",
-    "KOOOOOOPPCCK",
-    "KCOOOOOOCCCK",
-    ".KCCOOOCCCK.",
-    "..KCCCCCCK..",
-    "...KKKKKK...",
+  // The head is drawn for the 64 x 64 fox directly (18 x 16): pointed ears with pink insides, an almond eye with a
+  // shine, a blush, a cream muzzle and a black nose. Closed (blinking, sleeping), the eye is a happy curve.
+  const HEAD_64 = [
+    "..KK....KK........",
+    ".KPK...KPK........",
+    ".KPPK.KPPK........",
+    "KOPPOKOPPOK.......",
+    "KOOOOOOOOOOK......",
+    "KOOOOOOOOOOOK.....",
+    "KOOOOOOKKOOOOK....",
+    "KOOOOOOKWKOOOOK...",
+    "KOOOOOOKKKOOOOOKK.",
+    "KOOOOOOOOOOOCCCCKK",
+    "KCOOOOOOPPCCCCCCKK",
+    "KCCOOOOOCCCCCCCK..",
+    ".KCCOOOCCCCCKKK...",
+    ".KCCCOOCCCCK......",
+    "..KCCCCCCKK.......",
+    "...KKKKKK.........",
   ];
-  // The eye is a 2 x 2 block at columns 6-7, rows 4-5, with a white sparkle. Closed (blinking, sleeping), it's a
-  // happy upward curve.
-  const EYE_OPEN = [[6, 4, "K"], [7, 4, "W"], [6, 5, "K"], [7, 5, "K"]];
-  const EYE_CLOSED = [[6, 4, "K"], [7, 4, "K"], [6, 5, "O"], [7, 5, "O"], [5, 5, "K"], [8, 5, "K"]];
+  const EYE_64_CLOSED = [
+    [7, 6, "O"], [8, 6, "O"],
+    [7, 7, "K"], [8, 7, "K"], [9, 7, "K"],
+    [6, 8, "K"], [7, 8, "O"], [8, 8, "O"], [9, 8, "O"], [10, 8, "K"],
+  ];
 
   const BODY = [
     "....KKKKKKKKK...",
@@ -256,8 +263,7 @@
     });
     stamp(frame, BODY, 6, 13 + bob - rise);
     dots(frame, NECK, 0, bob - rise);
-    stamp(frame, HEAD, 19, 4 + bob - rise);
-    dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 19, 4 + bob - rise);
+    frame.head = [19, 4 + bob - rise, eyes];
     return frame;
   }
 
@@ -271,8 +277,7 @@
     }
     for (let i = 0; i < 4; i += 1) frame.set(`${17 + i},29`, "K");
     const headY = alert ? 9 : 10;
-    stamp(frame, HEAD, 12, headY);
-    dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 12, headY);
+    frame.head = [12, headY, eyes];
     return frame;
   }
 
@@ -282,8 +287,7 @@
     stamp(frame, TAIL_DOWN, 0, 25);
     stamp(frame, BODY, 6, 22 - breathe);
     for (let i = 0; i < 5; i += 1) frame.set(`${21 + i},29`, "K");
-    stamp(frame, HEAD, 18, 18);
-    dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 18, 18);
+    frame.head = [18, 18, eyes];
     return frame;
   }
 
@@ -337,7 +341,17 @@
     return out;
   }
 
-  const detailed = (frame) => shade(scale2x(frame, 32));
+  // The head is drawn at full detail rather than doubled (doubling made it huge and lumpy). It's smaller than the
+  // doubled one, its bottom-back corner where the old head's was, so it still sits on the neck.
+  function detailed(frame) {
+    const out = scale2x(frame, 32);
+    const [hx, hy, eyes] = frame.head;
+    const x = 2 * hx;
+    const y = 2 * hy + 22 - HEAD_64.length;
+    stamp(out, HEAD_64, x, y);
+    if (!eyes) dots(out, EYE_64_CLOSED, x, y);
+    return shade(out);
+  }
 
   const FOX = {
     stand: detailed(stand()),
