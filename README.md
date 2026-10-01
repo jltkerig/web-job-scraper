@@ -25,7 +25,7 @@ It only reads the pages you open yourself. It never clicks, scrolls, or opens an
 4. In Firefox, open `about:addons`, click the gear icon, choose **Install Add-on From File…**, and pick the `.xpi`. It stays installed after restarts.
 5. Pin the extension's toolbar icon (a magnifying glass over a briefcase) so you can see its panel.
 
-**Updating:** click **Check for updates** in the extension's panel, then **Add** in Firefox's prompt. The first time, Firefox may ask you to **Allow** jltkerig.github.io first. New versions are published on the project's GitHub Pages site (`https://jltkerig.github.io/web-job-scraper/updates.json`), which is also the `update_url` that the gear menu's **Check for Updates** in `about:addons` reads.
+**Updating:** Firefox installs new versions by itself, about once a day. To update straight away, click **Check for updates** in the extension's panel. If there's a newer version, the project's install page opens: click **Install**, then **Add** in Firefox's prompt. (The first time, Firefox may ask you to **Allow** jltkerig.github.io first.) Firefox only allows installs from a click on a web page, which is why the install page is needed. The gear menu's **Check for Updates** in `about:addons` also works. New versions are published on the project's GitHub Pages site (`https://jltkerig.github.io/web-job-scraper/updates.json`), which is also the `update_url` that the gear menu's **Check for Updates** in `about:addons` reads.
 
 **Publishing a new version:** raise `version` in `extension\manifest.json`, then run `powershell -ExecutionPolicy Bypass -File release.ps1`. It builds the extension and puts the install file and `updates.json` in `docs\`. Commit and push, and the update is live a minute or two later.
 
@@ -36,7 +36,7 @@ It only reads the pages you open yourself. It never clicks, scrolls, or opens an
 - **LinkedIn — On:** turns capture on or off.
 - **Today:** jobs seen, jobs opened (full details captured) and jobs that are new today.
 - **Saved … ago:** when the day's file was last written. **Save now** writes it straight away.
-- **Check for updates:** if Job Finder has a newer version, Firefox asks to add it; click **Add**. The version you have is shown at the top right.
+- **Check for updates:** if there's a newer version, the install page opens; click **Install**, then **Add**. The version you have is shown at the top right.
 - **Needs a look:** jobs whose card showed no location. Click one to open it. The full details are captured, and the next import fills in the location.
 - **Warning (orange `!` on the icon):** you were on a LinkedIn jobs page and no jobs were captured, which usually means LinkedIn changed its pages. Click **Save page for fixing** and the page is saved to `Downloads\web-job-scraper\debug\`, ready for updating the extension.
 
@@ -70,7 +70,7 @@ web-job-scraper\searches\
   .imported.json                                   ← which files were already imported
 ```
 
-Folder names use month-day-year. To use different folders, add `capture_downloads_dir` or `capture_searches_dir` to Job Finder's `settings.json`.
+`Downloads` above means Firefox's download folder. If Firefox saves downloads to the Desktop, the files are in `Desktop\web-job-scraper\`, and Job Finder looks there automatically. Folder names use month-day-year. To use different folders, add `capture_downloads_dir` or `capture_searches_dir` to Job Finder's `settings.json`.
 
 ## Cleanup
 
@@ -115,7 +115,7 @@ Folder names use month-day-year. To use different folders, add `capture_download
 
 ## Tests
 
-- Extension parser: `node --test tests/linkedin-parse.test.js`
+- Extension reader: `npm install` once, then `npm test`.
 - Job Finder import: `python -m unittest tests.test_capture_import` in the `job-finder` folder.
 
 ## Planned later

@@ -16,6 +16,7 @@ New-Item -ItemType Directory -Force $docs | Out-Null
 Get-ChildItem $docs -Filter "web-job-scraper-v*.xpi" | Where-Object { $_.Name -ne $name } | Remove-Item -Force
 Copy-Item (Join-Path $PSScriptRoot "dist\$name") (Join-Path $docs $name) -Force
 New-Item -ItemType File -Force (Join-Path $docs ".nojekyll") | Out-Null
+Copy-Item (Join-Path $PSScriptRoot "extension\icons\icon.svg") (Join-Path $docs "icon.svg") -Force  # for the install page
 
 $hash = (Get-FileHash (Join-Path $docs $name) -Algorithm SHA256).Hash.ToLower()
 $updates = @{
