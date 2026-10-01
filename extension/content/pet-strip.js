@@ -6,9 +6,9 @@
   if (window.top !== window) return;
 
   const SITE = "linkedin";
-  const WIDTH = 330;
-  const HEIGHT = 86;
-  const SCALE = 2;
+  const WIDTH = 420;
+  const HEIGHT = 128;
+  const SCALE = 3;
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   let host = null;
