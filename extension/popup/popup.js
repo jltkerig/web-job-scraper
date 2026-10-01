@@ -100,6 +100,74 @@ document.getElementById("save-now").addEventListener("click", () => {
 
 document.getElementById("save-page").addEventListener("click", () => savePage(null)); // the site of the open tab
 
+// ---------- scheduled LinkedIn runs ----------
+
+const runList = document.getElementById("run-list");
+const runWhen = document.getElementById("run-when");
+const runAlert = document.getElementById("run-alert");
+const TAGS = { scheduled: "Scheduled", running: "Running", done: "Done", stopped: "Stopped", missed: "Missed" };
+
+function localInputValue(date) {
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// Tomorrow at 6:10 AM, as a starting suggestion.
+const suggestion = new Date();
+suggestion.setDate(suggestion.getDate() + 1);
+suggestion.setHours(6, 10, 0, 0);
+runWhen.value = localInputValue(suggestion);
+
+function showRuns(result) {
+  runAlert.hidden = !result.runAlert;
+  runAlert.replaceChildren();
+  if (result.runAlert) {
+    const dismiss = el("button", { type: "button", textContent: "Dismiss" });
+    dismiss.addEventListener("click", () => send({ type: "clear-run-alert" }).then(showAll));
+    runAlert.append(el("div", { textContent: `[${result.runAlert.code}] ${result.runAlert.message}` }), dismiss);
+  }
+  runList.replaceChildren();
+  if (!result.runs.length) runList.append(el("li", { className: "hint", textContent: "No runs scheduled." }));
+  for (const run of result.runs) {
+    const when = new Date(run.when).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    let detail = run.message || "";
+    if (run.status === "running") detail = `${run.opened || 0} opened so far`;
+    if (run.status === "stopped" && run.code) detail = `[${run.code}] ${detail}`;
+    if (run.late && run.status !== "scheduled") detail = `ran late (Firefox was closed) · ${detail}`;
+    const item = el("li", {}, [
+      el("span", { className: `tag ${run.status}`, textContent: TAGS[run.status] || run.status }),
+      el("span", { className: "when" }, [when, el("span", { className: "detail", textContent: detail })]),
+    ]);
+    if (run.status !== "running") {
+      const remove = el("button", { type: "button", textContent: "×", title: run.status === "scheduled" ? "Cancel this run" : "Remove from the list" });
+      remove.addEventListener("click", () => send({ type: "remove-run", id: run.id }).then(showAll));
+      item.append(remove);
+    }
+    runList.append(item);
+  }
+}
+
+function showAll(result) {
+  show(result);
+  showRuns(result);
+}
+
+function runAction(payload) {
+  message.textContent = "";
+  send(payload).then(showAll).catch((error) => { message.textContent = String(error.message || error); });
+}
+
+document.getElementById("run-add").addEventListener("click", () => {
+  if (!runWhen.value) {
+    message.textContent = "Pick a date and time first.";
+    return;
+  }
+  runAction({ type: "add-run", when: new Date(runWhen.value).toISOString() });
+});
+document.getElementById("run-now").addEventListener("click", () => runAction({ type: "run-now" }));
+// While the panel is open, keep the tags up to date (a run takes a few minutes).
+setInterval(() => send({ type: "popup-state" }).then(showRuns).catch(() => {}), 3000);
+
 document.getElementById("check-update").addEventListener("click", () => {
   message.textContent = "Checking for updates…";
   send({ type: "check-update" })
@@ -157,5 +225,6 @@ petSpeed.addEventListener("change", () => send({ type: "set-pet", speed: petSpee
 document.getElementById("version").textContent = `v${browser.runtime.getManifest().version}`;
 send({ type: "popup-state" }).then((result) => {
   show(result);
+  showRuns(result);
   showPet(result);
 });

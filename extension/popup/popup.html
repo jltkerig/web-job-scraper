@@ -20,6 +20,17 @@
       <button id="save-now" type="button">Save now</button>
       <button id="check-update" type="button">Check for updates</button>
     </div>
+    <section class="runs">
+      <h2>Scheduled LinkedIn runs</h2>
+      <p class="hint">At the time you pick, Firefox opens LinkedIn's recommended jobs in a background tab, collects them, opens up to 10 new ones for details, then closes the tab. Firefox must be open.</p>
+      <div id="run-alert" class="warning" hidden></div>
+      <div class="run-add">
+        <input id="run-when" type="datetime-local" aria-label="Date and time for a run">
+        <button id="run-add" type="button">Add</button>
+        <button id="run-now" type="button" title="Start a run now">Run now</button>
+      </div>
+      <ul id="run-list"></ul>
+    </section>
     <section id="needs-look">
       <h2>Needs a look <span id="needs-count"></span></h2>
       <p class="hint">These jobs had no location on their card. Open one to capture its full details.</p>
