@@ -76,7 +76,7 @@ main { padding: 10px 12px 12px; }
 
 .warning button { margin-top: 6px; margin-right: 6px; }
 
-.actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 
 button {
   font: inherit;

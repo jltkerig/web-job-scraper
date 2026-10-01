@@ -175,6 +175,12 @@ document.getElementById("check-update").addEventListener("click", () => {
     .catch((error) => { message.textContent = String(error.message || error); });
 });
 
+document.getElementById("clear-badge").addEventListener("click", () => {
+  send({ type: "clear-badge" })
+    .then(() => { message.textContent = "Count cleared. Jobs found from now on will be counted."; })
+    .catch((error) => { message.textContent = String(error.message || error); });
+});
+
 // ---------- the fox and the newest flowers ----------
 
 const gardenCanvas = document.getElementById("garden");

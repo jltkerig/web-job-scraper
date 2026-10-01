@@ -42,7 +42,7 @@ The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt
 - **Needs a look:** jobs whose card showed no location. Click one to open it. The full details are captured, and the next import fills in the location.
 - **Warning (orange `!` on the icon):** you were on a LinkedIn jobs page and no jobs were captured, which usually means LinkedIn changed its pages. Click **Save page for fixing** and the page is saved to `Downloads\web-job-scraper\debug\`, ready for updating the extension.
 
-The number on the icon is how many new jobs were captured today.
+The number on the icon is how many new jobs were captured today. **Clear count** in the panel resets it to zero; after that it counts only jobs found since you cleared it.
 
 ## Scheduled LinkedIn runs
 

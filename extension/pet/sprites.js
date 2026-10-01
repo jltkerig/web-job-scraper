@@ -215,7 +215,8 @@
   // The knee row covers both the thigh's and the lower leg's columns, so a stepping leg bends instead of
   // touching only at a corner (which looked like the leg coming off).
   function leg(frame, x, top, dx = 0, lift = 0) {
-    for (let y = top; y < top + 2; y += 1) {
+    // The thigh starts 2 rows up, under the body (drawn on top), so it joins the belly instead of hanging below it.
+    for (let y = top - 2; y < top + 2; y += 1) {
       frame.set(`${x},${y}`, "D");
       frame.set(`${x + 1},${y}`, "D");
     }
@@ -227,7 +228,7 @@
     for (let i = 0; i < 3; i += 1) frame.set(`${x + dx + i},${top + 6 - lift}`, "K");
   }
 
-  const LEG_X = [8, 11, 17, 20]; // back, back, front, front
+  const LEG_X = [8, 11, 16, 19]; // back, back, front, front (under the chest, not past the belly's corner)
   // Walk cycle: [dx, lift] for each leg in each of 4 frames.
   const WALK = [
     [[-1, 0], [1, 1], [1, 1], [-1, 0]],
