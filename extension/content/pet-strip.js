@@ -37,8 +37,17 @@
     return Boolean(settings && settings.enabled && (settings.sites || {})[SITE] !== false && onJobsPage());
   }
 
+  // The page's width. While LinkedIn redraws the page it can briefly report 0, which would shrink the strip to
+  // nothing, so implausible widths fall back to the window's.
   function stripWidth() {
-    return document.documentElement.clientWidth || window.innerWidth;
+    const width = document.documentElement.clientWidth;
+    return width >= 200 ? width : Math.max(window.innerWidth || 0, 320);
+  }
+
+  // LinkedIn redraws the page body as you search and can drop elements it didn't put there, so the strip hangs off
+  // the <html> element instead, and is put back if it ever goes missing.
+  function attach() {
+    if (host && !host.isConnected) document.documentElement.appendChild(host);
   }
 
   // ---------- building the strip ----------
@@ -99,7 +108,7 @@
     foxSpot.addEventListener("click", () => pet.clicked());
     minimize.addEventListener("click", () => setMinimized(true));
     badge.addEventListener("click", () => setMinimized(false));
-    (document.body || document.documentElement).appendChild(host);
+    attach();
     showMinimized();
   }
 
@@ -148,12 +157,17 @@
   function tick(now) {
     frameRequest = null;
     if (!pet) return;
-    const dt = last ? Math.min(now - last, 100) : 16;
+    const dt = last ? Math.max(0, Math.min(now - last, 100)) : 16;
     last = now;
-    pet.update(now, dt);
-    pet.draw(ctx, now);
-    placeFoxSpot();
+    // Ask for the next frame first: a mistake in one frame must never stop the fox for good.
     frameRequest = requestAnimationFrame(tick);
+    try {
+      pet.update(now, dt);
+      pet.draw(ctx, now);
+      placeFoxSpot();
+    } catch (error) {
+      console.warn("web-job-scraper fox:", error);
+    }
   }
 
   function start() {
@@ -200,13 +214,15 @@
     }, 150);
   });
 
-  // LinkedIn changes pages without reloading: show the strip only on jobs pages.
+  // LinkedIn changes pages without reloading: show the strip only on jobs pages, and put it back if a redraw
+  // removed it.
   let path = location.pathname;
   setInterval(() => {
     if (location.pathname !== path) {
       path = location.pathname;
       apply();
     }
+    attach();
   }, 1000);
 
   browser.storage.onChanged.addListener((changes, area) => {
