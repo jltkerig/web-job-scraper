@@ -121,6 +121,58 @@
     "....g....",
   ];
 
+  // Now and then a really tall foxglove (9 x 30) grows instead.
+  const GIANT_FOXGLOVE = [
+    "....g....",
+    "....B....",
+    "....g....",
+    "...BgB...",
+    "....g....",
+    "..BBg....",
+    "....gBB..",
+    "..Bbg....",
+    "....gBb..",
+    ".BBBg....",
+    ".BpBgBBB.",
+    "..b.gBpB.",
+    "....g.b..",
+    ".BBBg....",
+    ".BpBgBBB.",
+    "..b.gBpB.",
+    "....g.b..",
+    "BBB.g....",
+    "BpBBg.BBB",
+    ".b..gBBpB",
+    "....g..b.",
+    "BBB.g....",
+    "BpBBg.BBB",
+    ".b..gBBpB",
+    "....g..b.",
+    "....g....",
+    ".GG.g.GG.",
+    "GGG.g.GGG",
+    ".GGGgGGG.",
+    "....g....",
+  ];
+
+  // Bluebells (9 x 14): bells hanging along one side of an arching stem.
+  const BLUEBELL = [
+    "...g.....",
+    "...g.BBB.",
+    "...ggBBBb",
+    "...g..bB.",
+    ".BBBg....",
+    "BBBbg....",
+    ".Bb.g....",
+    "....gBBB.",
+    "....gBBBb",
+    "....g.bB.",
+    ".G..g....",
+    "..G.g.G..",
+    "...GgG...",
+    "....g....",
+  ];
+
   // ---------- the bee (9 x 6): yellow and black stripes, pale blue wings that flap ----------
   const BEE = [
     [
@@ -250,14 +302,22 @@
     leap: stand({ walk: 0, tail: "UP", rise: 4 }),
   };
 
-  // Foxglove colours: [petal, lip] replacing B and b.
-  const PETALS = [
+  // Petal colours, [petal, lip] replacing B and b, for each kind of flower.
+  const FOXGLOVE_COLOURS = [
     ["#a8327f", "#d77ab4"], // magenta
     ["#e0609f", "#f5a9cf"], // pink
     ["#9a6fd0", "#c9b0ef"], // lilac
     ["#ee9a5c", "#f7c9a0"], // apricot
     ["#eadbe6", "#ffffff"], // cream
     ["#c2305a", "#e88aa6"], // deep rose
+  ];
+  const BLUEBELL_COLOURS = [
+    ["#4f6fd9", "#9fb2f5"], // blue
+    ["#8a4fd9", "#c9a6f7"], // violet
+    ["#e0559b", "#f7a8cf"], // pink
+    ["#e04848", "#f7a0a0"], // red
+    ["#e8a821", "#f7dc7a"], // gold
+    ["#22a094", "#8be0d6"], // teal
   ];
 
   // Draws a frame onto a canvas context at (x, y) in canvas pixels. flip mirrors it to face left; colors replaces
@@ -289,7 +349,12 @@
     return frame;
   }
 
-  const FLOWER = outlined(FOXGLOVE);
+  // Each kind of flower: its outlined frame, its size (with the outline) and its petal colours.
+  const FLOWERS = {
+    foxglove: { frame: outlined(FOXGLOVE), size: [11, FOXGLOVE.length + 1], colours: FOXGLOVE_COLOURS },
+    giant: { frame: outlined(GIANT_FOXGLOVE), size: [11, GIANT_FOXGLOVE.length + 1], colours: FOXGLOVE_COLOURS },
+    bluebell: { frame: outlined(BLUEBELL), size: [11, BLUEBELL.length + 1], colours: BLUEBELL_COLOURS },
+  };
   const BEE_FRAMES = BEE.map((grid) => {
     const frame = new Map();
     stamp(frame, grid, 0, 0);
@@ -301,6 +366,6 @@
   stamp(GRASS, ["..E..E", ".EeEEe", "eeeeee"], 0, 0);
 
   root.PetSprites = {
-    PALETTE, PETALS, FOX, FLOWER, FLOWER_SIZE: [11, 21], BEE: BEE_FRAMES, BEE_SIZE: [9, 6], GRASS, FOX_SIZE: 32, draw,
+    PALETTE, FOX, FLOWERS, FLOWER_WIDTH: 11, BEE: BEE_FRAMES, BEE_SIZE: [9, 6], GRASS, FOX_SIZE: 32, draw,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
