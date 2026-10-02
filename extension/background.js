@@ -9,10 +9,11 @@ const SITES = {
   // The Maryland Workforce Exchange allows no automated visitors, so only pages you open are read.
   mwe: { name: "Maryland Workforce Exchange", parse: globalThis.MweParse, api: null,
     hosts: ["mwejobs.maryland.gov", "www.mwejobs.maryland.gov"] },
-  // Not read yet: on these only "Save this page for fixing" works, to collect their page layouts (sites/sample-only.js).
+  // Not read yet: on this one only "Save this page for fixing" works, to collect their page layouts (sites/sample-only.js).
   indeed: { name: "Indeed", parse: globalThis.SampleParse, api: null, sampleOnly: true,
     hosts: ["www.indeed.com", "indeed.com"] },
-  usajobs: { name: "USAJOBS", parse: globalThis.SampleParse, api: null, sampleOnly: true,
+  // Like the Maryland exchange, USAJOBS blocks automated visitors, so only pages you open are read.
+  usajobs: { name: "USAJOBS", parse: globalThis.UsajobsParse, api: null,
     hosts: ["www.usajobs.gov", "usajobs.gov"] },
 };
 

@@ -4,7 +4,7 @@ A Firefox extension that saves the jobs you look at on LinkedIn and the Maryland
 
 It only reads the pages you open yourself. It never clicks, scrolls, or opens anything on its own.
 
-**Sites:** LinkedIn, and the Maryland Workforce Exchange (mwejobs.maryland.gov). Indeed and Glassdoor come next.
+**Sites:** LinkedIn, the Maryland Workforce Exchange (mwejobs.maryland.gov) and USAJOBS (search results you open; job pages are read loosely until a real one has been seen). Indeed and Glassdoor come next.
 
 The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt disallows them), so Job Finder never searches it itself. The extension only reads MWE job pages and search results you open yourself. Many of the same jobs also reach Job Finder through the National Labor Exchange (usnlx.com), which Job Finder searches.
 
