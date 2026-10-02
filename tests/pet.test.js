@@ -167,3 +167,61 @@ test("there is no hover state any more", () => {
   assert.strictEqual("hover" in fox(), false);
   assert.strictEqual(globalThis.PetSprites.FOX.peek, undefined);
 });
+
+test("a click makes an awake fox jump, look around both ways, then carry on", () => {
+  const pet = fox();
+  pet.setFlowers(waiting(3));
+  pet.setState("sit", 60000);
+  pet.facingLeft = true;
+  pet.clicked();
+  assert.strictEqual(pet.state, "pounce"); // the jump
+  pet.clicked();
+  assert.strictEqual(pet.state, "pounce"); // more clicks don't restart it
+  pet.update(pet.stateEnd + 1, 16);
+  assert.strictEqual(pet.state, "look");
+  assert.strictEqual(pet.popups.at(-1).text, "?");
+  const start = pet.stateStart;
+  const span = pet.stateEnd - start;
+  const faces = [0.1, 0.5, 0.9].map((part) => {
+    pet.update(start + span * part, 16);
+    return pet.facingLeft;
+  });
+  assert.deepStrictEqual(faces, [true, false, true]); // one way, the other way, back
+  pet.scrolling();
+  assert.strictEqual(pet.state, "look"); // the page scrolling doesn't cut it short
+  pet.update(pet.stateEnd + 1, 16);
+  assert.notStrictEqual(pet.state, "look");
+  assert.notStrictEqual(pet.state, "sleep");
+  assert.strictEqual(pet.interacting, false);
+});
+
+test("a click on a sleeping fox: it wakes, jumps, looks around and goes back to sleep", () => {
+  const pet = fox();
+  pet.setFlowers(waiting(3));
+  pet.setState("sleep", 60000);
+  pet.clicked();
+  assert.strictEqual(pet.state, "stretch");
+  pet.update(pet.stateEnd + 1, 16);
+  assert.strictEqual(pet.state, "pounce");
+  pet.update(pet.stateEnd + 1, 16);
+  assert.strictEqual(pet.state, "look");
+  pet.update(pet.stateEnd + 1, 16);
+  assert.strictEqual(pet.state, "sleep");
+  assert.strictEqual(pet.interacting, false);
+});
+
+test("a new job during the routine takes over, and clicking works again afterwards", () => {
+  const pet = fox();
+  pet.setFlowers(waiting(2));
+  pet.clicked();
+  pet.captured(1);
+  assert.strictEqual(pet.interacting, false);
+  pet.clicked();
+  assert.strictEqual(pet.state, "pounce");
+});
+
+test("with reduce animations on a click does nothing", () => {
+  const pet = fox({ reduced: true });
+  pet.clicked();
+  assert.strictEqual(pet.state, "sit");
+});
