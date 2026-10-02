@@ -353,3 +353,28 @@ test("only the red X stays: LinkedIn's own dismiss button is hidden, and the X i
   assert.match(button.style.cssText, /justify-content: center/);
   window.close();
 });
+
+test("the profile notice sits above the fox's strip instead of behind it, and drops back when the fox is minimized", async () => {
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
+  const fox = window.document.createElement("div"); // stands in for the fox's strip along the bottom
+  fox.setAttribute("data-wjs-fox-host", "");
+  let rect = { width: 1200, height: 128 };
+  fox.getBoundingClientRect = () => rect;
+  window.document.documentElement.appendChild(fox);
+  window.browser = { runtime: { sendMessage: async (message) => (message.type === "fit-profile-now"
+      ? { titles: 0, error: "Job Finder isn't running." } : { places: {} }) },
+    storage: { local: { get: async () => ({}), set: async () => {} }, onChanged: { addListener: () => {} } } };
+  window.LinkedInParse = globalThis.LinkedInParse;
+  window.LinkedInFit = globalThis.LinkedInFit;
+  window.eval(require("node:fs").readFileSync(require.resolve("../extension/content/fit-marks.js"), "utf8"));
+  await new Promise((resolve) => setTimeout(resolve, 1600));
+  const notice = Array.from(window.document.querySelectorAll("wjs-fit-tag")).find((t) => t.shadowRoot && /Job Finder isn't running/.test(t.shadowRoot.textContent));
+  assert.ok(notice);
+  assert.strictEqual(notice.style.getPropertyValue("bottom"), "140px"); // 128 px strip + 12 px gap
+  assert.ok(Number(notice.style.zIndex) > 2147483000); // and above it in the stack
+  rect = { width: 48, height: 48 }; // minimized to a round badge at the right: no longer in the way
+  await new Promise((resolve) => setTimeout(resolve, 1700));
+  assert.strictEqual(notice.style.getPropertyValue("bottom"), "12px");
+  window.close();
+});
