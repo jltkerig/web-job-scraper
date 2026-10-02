@@ -30,7 +30,9 @@
     [${MARK}] { position: relative !important; }
     wjs-fit-tag { position: absolute; top: 6px; right: 8px; z-index: 2; pointer-events: none; }
     wjs-fit-tag[data-distance] { top: auto; bottom: 6px; }
-    wjs-fit-tag[data-hide] { top: 30px; pointer-events: auto; }`;
+    wjs-fit-tag[data-hide] { top: 30px; pointer-events: auto; }
+    /* LinkedIn's own grey dismiss X on a card: only the red one stays */
+    [data-wjs-card] button[aria-label^="Dismiss "][aria-label$=" job"] { display: none !important; }`;
   (document.head || document.documentElement).appendChild(style);
 
   function tag(text, extraCss) {
@@ -53,12 +55,15 @@
     const shadow = host.attachShadow({ mode: "open" });
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = "✕";
+    // The X is drawn as two lines in an SVG (not a text character), so it sits exactly in the middle of the circle.
+    button.innerHTML = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" style="display:block">' +
+      '<path d="M2 2 L10 10 M10 2 L2 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
     button.title = `Hide jobs from ${name}`;
     button.setAttribute("aria-label", `Hide jobs from ${name}`);
     const look = (filled) => {
-      button.style.cssText = "font: 800 13px/1 system-ui, sans-serif; width: 24px; height: 24px; border-radius: 50%; " +
-        "border: 2px solid #dc2626; cursor: pointer; padding: 0; box-shadow: 0 1px 3px rgba(0,0,0,.25); " +
+      button.style.cssText = "display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; " +
+        "border-radius: 50%; border: 2px solid #dc2626; cursor: pointer; padding: 0; margin: 0; box-sizing: border-box; " +
+        "box-shadow: 0 1px 3px rgba(0,0,0,.25); " +
         (filled ? "background: #dc2626; color: #fff;" : "background: #fff; color: #dc2626;");
     };
     look(false);
@@ -211,6 +216,7 @@
         slot.removeAttribute("data-wjs-hidden");
       }
       shown.push(card);
+      card.element.setAttribute("data-wjs-card", "1");
       const name = card.job.company;
       const old = card.element.querySelector(":scope > wjs-fit-tag[data-hide]");
       if (name && (!old || old.dataset.company !== name)) {

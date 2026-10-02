@@ -338,3 +338,18 @@ test("when Job Finder cannot be reached the page says why instead of staying sil
   assert.strictEqual(window.document.querySelectorAll("wjs-fit-tag[data-bar]").length, 0);
   window.close();
 });
+
+test("only the red X stays: LinkedIn's own dismiss button is hidden, and the X is drawn centered", async () => {
+  const { window } = hidingPage();
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4460751737']");
+  assert.ok(card.hasAttribute("data-wjs-card"));
+  const css = Array.from(window.document.querySelectorAll("style")).map((s) => s.textContent).join("\n");
+  assert.match(css, /\[data-wjs-card\] button\[aria-label\^="Dismiss "\]\[aria-label\$=" job"\] \{ display: none !important/);
+  const button = card.querySelector(":scope > wjs-fit-tag[data-hide]").shadowRoot.querySelector("button");
+  assert.ok(button.querySelector("svg path"));
+  assert.match(button.style.cssText, /display: flex/);
+  assert.match(button.style.cssText, /align-items: center/);
+  assert.match(button.style.cssText, /justify-content: center/);
+  window.close();
+});
