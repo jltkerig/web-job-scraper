@@ -283,6 +283,7 @@
     } finally {
       running = false;
     }
+    checkProfile();
     const heading = parse.aboutHeading(document);
     if (!heading) return;
     const box = descriptionBox(heading);
@@ -293,6 +294,49 @@
 
   function schedule() {
     if (!timer) timer = setTimeout(run, 600);
+  }
+
+  // No profile (or one with no titles) means no Fit tags or green bars. Ask the background script to read it from
+  // Job Finder now, and say so on the page, so a missing profile is never a silent "nothing is green".
+  let notice = null;
+  let askedAt = 0;
+  let problem = "Fit markers: waiting for your Job Finder profile…"; // what the last attempt found
+  function showNotice(text) {
+    if (!text) { notice?.remove(); notice = null; return; }
+    if (!notice) {
+      notice = document.createElement("wjs-fit-tag");
+      notice.style.cssText = "position: fixed; left: 12px; bottom: 12px; top: auto; right: auto; z-index: 2147483000; pointer-events: auto;";
+      const shadow = notice.attachShadow({ mode: "open" });
+      const box = document.createElement("div");
+      box.style.cssText = "font: 600 12px/1.4 system-ui, sans-serif; color: #fff; background: #374151; border-radius: 8px; " +
+        "padding: 8px 12px; max-width: 320px; box-shadow: 0 2px 8px rgba(0,0,0,.3);";
+      shadow.appendChild(box);
+      (document.body || document.documentElement).appendChild(notice);
+    }
+    notice.shadowRoot.firstChild.textContent = text;
+  }
+  async function checkProfile() {
+    if (profile && (profile.titles || []).length) { showNotice(""); return; }
+    if (!parse.onJobsPage(location)) return;
+    showNotice(problem);
+    if (Date.now() - askedAt < 30 * 1000) return;
+    askedAt = Date.now();
+    try {
+      const reply = await browser.runtime.sendMessage({ type: "fit-profile-now" });
+      if (reply && reply.titles) {
+        const saved = await browser.storage.local.get("fitProfile");
+        profile = saved.fitProfile || profile;
+        showNotice("");
+        schedule();
+      } else {
+        problem = reply && reply.error ? `Fit markers: ${reply.error}`
+          : "Fit markers: your Job Finder profile has no job titles yet, so nothing is marked.";
+        showNotice(problem);
+      }
+    } catch (error) {
+      problem = "Fit markers: the extension couldn't reach Job Finder. Is it running?";
+      showNotice(problem);
+    }
   }
 
   browser.storage.local.get(["fitProfile", "sortByDistance", "hiddenCompanies"]).then((saved) => {
