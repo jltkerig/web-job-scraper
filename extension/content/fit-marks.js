@@ -27,8 +27,7 @@
 
   const style = document.createElement("style");
   style.textContent = `
-    [${MARK}] { position: relative !important; box-shadow: inset 4px 0 0 #0b7a55 !important;
-      background-color: rgba(16, 185, 129, 0.09) !important; }
+    [${MARK}] { position: relative !important; }
     wjs-fit-tag { position: absolute; top: 6px; right: 8px; z-index: 2; pointer-events: none; }
     wjs-fit-tag[data-distance] { top: auto; bottom: 6px; }
     wjs-fit-tag[data-hide] { top: 30px; pointer-events: auto; }`;
@@ -171,6 +170,7 @@
         if (current !== null) {
           element.removeAttribute(MARK);
           element.querySelector(":scope > wjs-fit-tag[data-fit]")?.remove();
+          element.querySelector(":scope > wjs-fit-tag[data-bar]")?.remove();
         }
         continue;
       }
@@ -181,6 +181,17 @@
         const host = tag("Fit");
         host.dataset.fit = "1";
         element.appendChild(host);
+      }
+      // The green bar and a light green wash are an overlay of their own on top of the card's contents (like the tags),
+      // so nothing inside LinkedIn's card can paint over them. It ignores the mouse, so the card still clicks normally.
+      if (!element.querySelector(":scope > wjs-fit-tag[data-bar]")) {
+        const bar = document.createElement("wjs-fit-tag");
+        bar.dataset.bar = "1";
+        bar.style.cssText = "top: 0; right: 0; bottom: 0; left: 0; z-index: 1; pointer-events: none;";
+        const shadow = bar.attachShadow({ mode: "open" });
+        shadow.innerHTML = '<div style="position:absolute;inset:0;background:rgba(16,185,129,.10)"></div>' +
+          '<div style="position:absolute;left:0;top:0;bottom:0;width:6px;background:#0b7a55"></div>';
+        element.appendChild(bar);
       }
     }
   }
