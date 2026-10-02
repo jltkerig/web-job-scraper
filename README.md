@@ -43,6 +43,10 @@ So you know which jobs are worth opening:
 
 The extension reads your titles, skills and work preferences from Job Finder on this computer (`http://127.0.0.1:5000/extension/fit-profile`) when Firefox starts and every 30 minutes, and keeps the last copy when Job Finder isn't running. The panel's **Fit markers** line says when it was last updated. Nothing is sent to LinkedIn or anywhere else.
 
+## Indeed and USAJOBS (collecting page layouts first)
+
+The extension is also loaded on Indeed and USAJOBS, but it does not read their jobs yet: each site's page layout has to be seen first. Open a search results page or a job page there, click **Save this page for fixing** in the panel, and the page is saved to `web-job-scraper\debug\` in your downloads folder. A reader can then be written from those files. Until then nothing from these sites is captured, and they don't appear in the panel's site list.
+
 ## The toolbar panel
 
 - **LinkedIn — On / Maryland Workforce Exchange — On:** turns capture on or off for each site.
@@ -58,7 +62,8 @@ The number on the icon is how many new jobs were captured today. **Clear count**
 
 Pick a date and time in the panel's **Scheduled LinkedIn runs** section and click **Add**. Only one-off runs for now. **Run now** starts one straight away. At that time:
 
-1. Firefox opens a **background tab** with LinkedIn's Jobs home ("Top job picks for you") and then the "Recommended for you" collection, then the LinkedIn jobs page of each company you watch (Flywheel for now; add more to `RUN_COMPANY_PAGES` in `extensionuns.js`). It reads page 1 of each, the same way it reads pages you browse.
+1. Firefox opens a **background tab** with LinkedIn's Jobs home ("Top job picks for you") and then the "Recommended for you" collection, then the LinkedIn jobs page of each company you watch (Flywheel for now; add more to `RUN_COMPANY_PAGES` in `extension
+uns.js`). It reads page 1 of each, the same way it reads pages you browse.
 2. It opens up to **10 new jobs** it doesn't have details for yet, one every 20 to 45 seconds at random, to collect their descriptions and locations.
 3. It closes the tab and saves the jobs to the day's file, ready for Job Finder's import. The fox never appears in that tab.
 

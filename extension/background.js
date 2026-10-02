@@ -9,6 +9,11 @@ const SITES = {
   // The Maryland Workforce Exchange allows no automated visitors, so only pages you open are read.
   mwe: { name: "Maryland Workforce Exchange", parse: globalThis.MweParse, api: null,
     hosts: ["mwejobs.maryland.gov", "www.mwejobs.maryland.gov"] },
+  // Not read yet: on these only "Save this page for fixing" works, to collect their page layouts (sites/sample-only.js).
+  indeed: { name: "Indeed", parse: globalThis.SampleParse, api: null, sampleOnly: true,
+    hosts: ["www.indeed.com", "indeed.com"] },
+  usajobs: { name: "USAJOBS", parse: globalThis.SampleParse, api: null, sampleOnly: true,
+    hosts: ["www.usajobs.gov", "usajobs.gov"] },
 };
 
 function siteForUrl(url) {
@@ -394,6 +399,7 @@ function popupState() {
   const today = localDay();
   const sites = {};
   for (const [site, info] of Object.entries(SITES)) {
+    if (info.sampleOnly) continue; // nothing is captured there, so the panel doesn't list it
     const jobs = Object.values(state.jobs).filter((job) => job.site === site);
     const todays = jobs.filter((job) => localDay(new Date(job.last_seen)) === today);
     sites[site] = {
@@ -429,7 +435,7 @@ async function saveDebug(site, tabId) {
   const tab = tabId !== undefined ? { id: tabId } : (await browser.tabs.query({ active: true, currentWindow: true }))[0];
   // From the panel's button: the site is whichever job site the open tab is on.
   site = site || (tab && tab.url && siteForUrl(tab.url));
-  if (!site) throw fail("Open a LinkedIn or Maryland Workforce Exchange jobs page, then try again.");
+  if (!site) throw fail("Open a LinkedIn, Maryland Workforce Exchange, Indeed or USAJOBS jobs page, then try again.");
   let page = null;
   try {
     page = tab ? await browser.tabs.sendMessage(tab.id, { type: "get-page-html" }) : null;
