@@ -29,6 +29,14 @@
   let last = 0;
   let resizeTimer = null;
 
+  // One fox per page. When the extension is updated or reloaded while LinkedIn stays open, the old copy of this script
+  // keeps running next to the new one, and each draws a fox. Every copy leaves its token on <html>; the copy that
+  // finds a newer copy's token there removes its own fox and stays quiet.
+  const OWNER = "data-wjs-fox";
+  const TOKEN = `${Date.now()}-${Math.random()}`;
+  let retired = false;
+  const owned = () => document.documentElement.getAttribute(OWNER) === TOKEN;
+
   function onJobsPage() {
     return location.pathname.startsWith("/jobs");
   }
@@ -72,6 +80,7 @@
   }
 
   function build() {
+    document.documentElement.setAttribute(OWNER, TOKEN);
     host = document.createElement("div");
     const shadow = host.attachShadow({ mode: "closed" });
     const style = document.createElement("style");
@@ -185,6 +194,7 @@
   // ---------- keeping in step with the extension and the page ----------
 
   function apply() {
+    if (retired) return undefined;
     if (!wanted()) return remove();
     if (!host) return build();
     pet.setOptions({ speed: settings.speed, reduced: reducedMotion.matches });
@@ -221,6 +231,10 @@
     if (location.pathname !== path) {
       path = location.pathname;
       apply();
+    }
+    if (host && !owned() && document.documentElement.hasAttribute(OWNER)) {
+      retired = true; // a newer copy of this script has its own fox on the page
+      remove();
     }
     attach();
   }, 1000);
