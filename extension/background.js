@@ -539,6 +539,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
         }
         return true;
       case "page-settled":
+        refreshFitProfileIfStale();
         await pageSettled(message.site, message, tabId);
         return true;
       case "distances":
@@ -620,7 +621,14 @@ browser.tabs.onRemoved.addListener((tabId) => {
 // (content/fit-marks.js). Read from Job Finder on this computer every 30 minutes; the last copy is kept when
 // Job Finder isn't running.
 const FIT_PROFILE_URL = "http://127.0.0.1:5000/extension/fit-profile";
+let lastFitFetch = 0;
+// Also asked for when a page loads and the copy is over 2 minutes old, so a change to skills or titles in Job Finder
+// reaches the fit marks soon after it is saved.
+function refreshFitProfileIfStale() {
+  if (Date.now() - lastFitFetch > 2 * 60 * 1000) refreshFitProfile();
+}
 async function refreshFitProfile() {
+  lastFitFetch = Date.now();
   try {
     const response = await fetch(FIT_PROFILE_URL, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -657,7 +665,7 @@ async function distancesFor(places) {
 refreshFitProfile();
 
 browser.alarms.create("flush", { periodInMinutes: 1 });
-browser.alarms.create("fit-profile", { periodInMinutes: 30 });
+browser.alarms.create("fit-profile", { periodInMinutes: 5 }); // so a skills change in Job Fit shows within minutes
 browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "flush") {
     flush(false);
