@@ -254,6 +254,10 @@ test("every card gets a Fit tag AND a hide button; the Fit tag isn't lost when a
   await new Promise((resolve) => setTimeout(resolve, 900));
   const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4466104575']");
   assert.ok(card.querySelector(":scope > wjs-fit-tag[data-fit]"));
+  const bar = card.querySelector(":scope > wjs-fit-tag[data-bar]"); // the green bar is its own overlay, not a style LinkedIn's boxes can cover
+  assert.ok(bar);
+  assert.match(bar.shadowRoot.innerHTML, /#0b7a55/);
+  assert.match(bar.style.cssText, /pointer-events: none/);
   assert.ok(card.querySelector(":scope > wjs-fit-tag[data-distance]"));
   assert.strictEqual(card.querySelector(":scope > wjs-fit-tag[data-hide]").dataset.company, "GemHarvest Executive Recruiting");
   const x = card.querySelector(":scope > wjs-fit-tag[data-hide]").shadowRoot.querySelector("button");
