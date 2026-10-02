@@ -544,6 +544,11 @@ browser.runtime.onMessage.addListener((message, sender) => {
         return true;
       case "distances":
         return distancesFor(message.places);
+      case "fit-profile-now": { // the LinkedIn page has no profile (or none with titles): read it now, and say what happened
+        await refreshFitProfile();
+        const saved = await browser.storage.local.get(["fitProfile", "fitProfileError"]);
+        return { titles: ((saved.fitProfile && saved.fitProfile.titles) || []).length, error: saved.fitProfileError || "" };
+      }
       case "popup-state":
         return popupState();
       case "pet-state":

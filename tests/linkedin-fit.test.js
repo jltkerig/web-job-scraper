@@ -300,3 +300,41 @@ test("taking a company out of the hidden list (the panel's Unhide) brings its ca
   assert.notStrictEqual(slotOf(window, "4472661323").style.getPropertyValue("display"), "none");
   window.close();
 });
+
+test("with no profile the page says so, asks for it at once, and marks the cards when it arrives", async () => {
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
+  const stored = { hiddenCompanies: [], sortByDistance: true };
+  const asked = [];
+  window.browser = { runtime: { sendMessage: async (message) => {
+      asked.push(message.type);
+      if (message.type !== "fit-profile-now") return { places: {} };
+      stored.fitProfile = { titles: ["Graphic Designer"], skills: [], work_preferences: [], blocked_companies: [] };
+      return { titles: 1, error: "" };
+    } },
+    storage: { local: { get: async () => stored, set: async () => {} }, onChanged: { addListener: () => {} } } };
+  window.LinkedInParse = globalThis.LinkedInParse;
+  window.LinkedInFit = globalThis.LinkedInFit;
+  window.eval(require("node:fs").readFileSync(require.resolve("../extension/content/fit-marks.js"), "utf8"));
+  await new Promise((resolve) => setTimeout(resolve, 1600));
+  assert.ok(asked.includes("fit-profile-now"));
+  assert.ok(window.document.querySelectorAll("wjs-fit-tag[data-bar]").length >= 1); // marks appear once the profile is read
+  assert.strictEqual(window.document.querySelectorAll("wjs-fit-tag").length > 0 && Array.from(window.document.querySelectorAll("wjs-fit-tag")).some((t) => t.shadowRoot && /waiting for your Job Finder profile/.test(t.shadowRoot.textContent)), false); // the notice is gone
+  window.close();
+});
+
+test("when Job Finder cannot be reached the page says why instead of staying silent", async () => {
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
+  window.browser = { runtime: { sendMessage: async (message) => (message.type === "fit-profile-now"
+      ? { titles: 0, error: "Job Finder isn't running, so the fit markers use the last copy of your profile." } : { places: {} }) },
+    storage: { local: { get: async () => ({}), set: async () => {} }, onChanged: { addListener: () => {} } } };
+  window.LinkedInParse = globalThis.LinkedInParse;
+  window.LinkedInFit = globalThis.LinkedInFit;
+  window.eval(require("node:fs").readFileSync(require.resolve("../extension/content/fit-marks.js"), "utf8"));
+  await new Promise((resolve) => setTimeout(resolve, 1600));
+  const text = Array.from(window.document.querySelectorAll("wjs-fit-tag")).map((t) => (t.shadowRoot ? t.shadowRoot.textContent : "")).join(" ");
+  assert.match(text, /Job Finder isn't running/);
+  assert.strictEqual(window.document.querySelectorAll("wjs-fit-tag[data-bar]").length, 0);
+  window.close();
+});
