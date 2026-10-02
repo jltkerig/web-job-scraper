@@ -256,6 +256,9 @@ test("every card gets a Fit tag AND a hide button; the Fit tag isn't lost when a
   assert.ok(card.querySelector(":scope > wjs-fit-tag[data-fit]"));
   assert.ok(card.querySelector(":scope > wjs-fit-tag[data-distance]"));
   assert.strictEqual(card.querySelector(":scope > wjs-fit-tag[data-hide]").dataset.company, "GemHarvest Executive Recruiting");
+  const x = card.querySelector(":scope > wjs-fit-tag[data-hide]").shadowRoot.querySelector("button");
+  assert.match(x.style.cssText, /border: 2px solid (?:#dc2626|rgb\(220, 38, 38\))/); // a red circle
+  assert.match(x.style.cssText, /border-radius: 50%/);
   window.close();
 });
 

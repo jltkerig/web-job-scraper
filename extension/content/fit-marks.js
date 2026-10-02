@@ -57,8 +57,16 @@
     button.textContent = "✕";
     button.title = `Hide jobs from ${name}`;
     button.setAttribute("aria-label", `Hide jobs from ${name}`);
-    button.style.cssText = "font: 700 12px/1 system-ui, sans-serif; width: 22px; height: 22px; border-radius: 50%; " +
-      "border: 1px solid #9ca3af; background: #fff; color: #4b5563; cursor: pointer; padding: 0;";
+    const look = (filled) => {
+      button.style.cssText = "font: 800 13px/1 system-ui, sans-serif; width: 24px; height: 24px; border-radius: 50%; " +
+        "border: 2px solid #dc2626; cursor: pointer; padding: 0; box-shadow: 0 1px 3px rgba(0,0,0,.25); " +
+        (filled ? "background: #dc2626; color: #fff;" : "background: #fff; color: #dc2626;");
+    };
+    look(false);
+    button.addEventListener("mouseenter", () => look(true));
+    button.addEventListener("mouseleave", () => look(false));
+    button.addEventListener("focus", () => look(true));
+    button.addEventListener("blur", () => look(false));
     for (const type of ["pointerdown", "mousedown", "mouseup", "keydown"]) {
       button.addEventListener(type, (event) => event.stopPropagation());
     }
@@ -102,7 +110,7 @@
 
   async function loadDistances(cards) {
     const now = Date.now();
-    const places = [...new Set(cards.map(({ job }) => job.location)
+    const places = [...new Set(cards.filter(({ job }) => distanceOf(job) !== REMOTE).map(({ job }) => job.location)
       .filter((place) => place && !distances.has(place) && (retryAt.get(place) || 0) <= now))];
     if (!places.length) return;
     let reply = null;
