@@ -504,6 +504,8 @@ browser.runtime.onMessage.addListener((message, sender) => {
       case "page-settled":
         await pageSettled(message.site, message, tabId);
         return true;
+      case "distances":
+        return distancesFor(message.places);
       case "popup-state":
         return popupState();
       case "pet-state":
@@ -586,11 +588,32 @@ async function refreshFitProfile() {
     const response = await fetch(FIT_PROFILE_URL, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const profile = await response.json();
+    distanceCache.clear(); // the Home ZIP may have changed
     await browser.storage.local.set({ fitProfile: profile, fitProfileAt: new Date().toISOString(), fitProfileError: "" });
   } catch (error) {
     await browser.storage.local.set({ fitProfileError: "Job Finder isn't running, so the fit markers use the last copy of your profile." });
   }
 }
+// Estimated distance and 6 a.m. drive time from your Home ZIP to each job's town, worked out by Job Finder on this
+// computer (the same estimate as its Dashboard). Remembered until the profile is read again.
+const DISTANCES_URL = "http://127.0.0.1:5000/extension/distances?places=";
+const distanceCache = new Map(); // place -> { miles, minutes, text } or null
+async function distancesFor(places) {
+  const wanted = [...new Set((places || []).map(String))].slice(0, 100);
+  const missing = wanted.filter((place) => !distanceCache.has(place));
+  if (missing.length) {
+    try {
+      const response = await fetch(DISTANCES_URL + encodeURIComponent(missing.join("|")), { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      for (const place of missing) distanceCache.set(place, (data.places || {})[place] || null);
+    } catch (error) {
+      return { places: {}, error: "Job Finder isn't running." }; // not remembered, so it is asked again next time
+    }
+  }
+  return { places: Object.fromEntries(wanted.map((place) => [place, distanceCache.get(place)])) };
+}
+
 refreshFitProfile();
 
 browser.alarms.create("flush", { periodInMinutes: 1 });

@@ -250,3 +250,10 @@ browser.storage.local.get(["fitProfile", "fitProfileAt", "fitProfileError"]).the
       (saved.fitProfileError ? ` ${saved.fitProfileError}` : "");
   }
 }).catch(() => {});
+
+// "Nearest first": remembered in storage; the LinkedIn page script reads it.
+browser.storage.local.get("sortByDistance").then((saved) => {
+  const box = document.getElementById("sort-distance");
+  box.checked = saved.sortByDistance !== false;
+  box.addEventListener("change", () => browser.storage.local.set({ sortByDistance: box.checked }));
+}).catch(() => {});
