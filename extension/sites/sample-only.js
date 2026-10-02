@@ -7,7 +7,8 @@
   root.SampleParse = {
     SITE: "sample", NAME: "Sample", jobUrl: () => "", idFromUrl: () => null, pageKind: () => "other",
     fromVoyager: () => [], fromDom: () => [], fromEmbedded: () => [], expectsJobs: () => false,
-    onJobsPage: () => true, // every page there reports in, so background.js can keep a sample of each kind
+    // Only job search and job pages report in, so no sample is ever kept of an account, profile, resume or message page.
+    onJobsPage: (loc) => /^\/(?:$|jobs|viewjob|m\/viewjob|rc\/|q-|l-|cmp\/)/i.test(loc.pathname),
     detailId: () => null,
   };
   // On a page where no real reader loaded first, capture.js uses this one.

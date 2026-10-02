@@ -102,15 +102,49 @@
     return jobs;
   }
 
-  // A job page: the title is the page's main heading. This layout has not been seen yet, so it is read loosely.
+  // The text lines of an element, in order.
+  function lines(element) {
+    const result = [];
+    const walker = element.ownerDocument.createTreeWalker(element, 4 /* NodeFilter.SHOW_TEXT */);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.parentElement && /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(node.parentElement.tagName)) continue;
+      const line = clean(node.nodeValue);
+      if (line) result.push(line);
+    }
+    return result;
+  }
+
+  // The line after a label in the Overview box ("Salary", then "$57,675 - $114,825 per year").
+  function after(list, label) {
+    const at = list.findIndex((line) => line.toLowerCase() === label.toLowerCase());
+    return at >= 0 && at + 1 < list.length ? list[at + 1] : "";
+  }
+
+  // A job page: the banner holds the title and agency, the Overview box the place, pay and dates, and the
+  // Summary, Duties and Requirements sections the description.
   function detailFromDom(doc, pageUrl) {
-    const heading = doc.querySelector("h1");
-    const title = heading ? clean(heading.textContent) : "";
+    const text = (selector) => clean((doc.querySelector(selector) || {}).textContent);
+    const title = text(".usajobs-joa-banner__title") || text("h1");
     if (!title) return null;
-    const text = clean((doc.querySelector("main") || doc.body).textContent);
+    const main = doc.querySelector("main") || doc.body;
+    const overview = lines(main);
+    const agency = text(".usajobs-joa-banner__agency") || text(".usajobs-joa-banner__dept");
+    const at = overview.findIndex((line) => /^\d+ vacanc(?:y|ies) in the following location/i.test(line));
+    const where = at >= 0 ? overview[at + 1] : "";
+    const range = overview.map((line) => line.match(OPEN_DATES)).find(Boolean);
+    const end = range && range[4] ? new Date(Number(range[6]), Number(range[4]) - 1, Number(range[5]), 23, 59, 59) : null;
+    const sections = ["#joa-summary", "#joa-duties", "#joa-requirements"]
+      .map((selector) => doc.querySelector(selector)).filter(Boolean)
+      .map((node) => lines(node).join("\n"));
+    const salary = after(overview, "Salary");
+    const remote = /^yes$/i.test(after(overview, "Remote job"));
+    const telework = /^yes$/i.test(after(overview, "Telework eligible"));
     return job({
-      title, description: text.slice(0, 20000),
-      closed: /announcement (?:has )?closed|no longer accepting/i.test(text),
+      title, company: agency, location: place(where), salary: pay(salary),
+      posted: range ? `${range[3]}-${range[1]}-${range[2]}` : "",
+      work_arrangement: remote ? "Remote" : telework ? "Hybrid" : "",
+      closed: Boolean(end && end.getTime() < Date.now()) || overview.some((line) => /^(?:closed|this job announcement is closed)$/i.test(line)),
+      description: sections.join("\n\n").slice(0, 20000),
     }, pageUrl);
   }
 

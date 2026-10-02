@@ -109,6 +109,8 @@ test("Indeed is sample-only: no jobs are read, pages report in so samples can be
   const sample = globalThis.SampleParse;
   assert.strictEqual(sample.onJobsPage(new URL("https://www.indeed.com/jobs?q=web")), true); // every page reports in, so a sample can be kept
   assert.strictEqual(sample.expectsJobs("https://www.indeed.com/jobs?q=web"), false);
+  assert.strictEqual(sample.onJobsPage(new URL("https://www.indeed.com/account/view")), false); // no samples of account pages
+  assert.strictEqual(sample.onJobsPage(new URL("https://www.indeed.com/viewjob?jk=abc")), true);
   assert.deepStrictEqual(sample.fromDom({}, "https://www.indeed.com/"), []);
 });
 

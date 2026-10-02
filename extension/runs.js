@@ -47,7 +47,7 @@ function addRun(when) {
   const time = Date.parse(when);
   if (!Number.isFinite(time)) throw new Error("Pick a date and time for the run.");
   if (time < Date.now() - 60000) throw new Error("That time has already passed.");
-  const run = { id: `run-${Date.now().toString(36)}`, when: new Date(time).toISOString(), status: "scheduled" };
+  const run = { id: `run-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, when: new Date(time).toISOString(), status: "scheduled" };
   state.runs.push(run);
   sortRuns();
   browser.alarms.create(`run:${run.id}`, { when: time });

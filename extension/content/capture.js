@@ -61,6 +61,18 @@
     scheduleScan();
   }
 
+  // The page as saved for fixing: without scripts, and without anything typed into a field (a saved sample sits in
+  // plain text in the downloads folder, so it should hold the page layout and nothing about you that it can avoid).
+  function pageHtmlForSample() {
+    const copy = document.documentElement.cloneNode(true);
+    for (const node of copy.querySelectorAll("script, noscript, template")) node.remove();
+    for (const field of copy.querySelectorAll("input, textarea")) {
+      field.removeAttribute("value");
+      if (field.tagName === "TEXTAREA") field.textContent = "";
+    }
+    return copy.outerHTML;
+  }
+
   new MutationObserver(scheduleScan).observe(document.documentElement, { childList: true, subtree: true });
   setInterval(() => {
     if (location.href !== pageUrl) pageView();
@@ -68,7 +80,7 @@
 
   browser.runtime.onMessage.addListener((message) => {
     if (message && message.type === "get-page-html") {
-      return Promise.resolve({ url: location.href, html: document.documentElement.outerHTML });
+      return Promise.resolve({ url: location.href, html: pageHtmlForSample() });
     }
     return undefined;
   });
