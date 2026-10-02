@@ -634,14 +634,22 @@ function refreshFitProfileIfStale() {
 }
 async function refreshFitProfile() {
   lastFitFetch = Date.now();
+  let step = "asking Job Finder";
   try {
     const response = await fetch(FIT_PROFILE_URL, { cache: "no-store" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw new Error(`Job Finder answered HTTP ${response.status}`);
+    step = "reading its reply";
     const profile = await response.json();
     distanceCache.clear(); // the Home ZIP may have changed
+    step = "saving the profile in Firefox";
     await browser.storage.local.set({ fitProfile: profile, fitProfileAt: new Date().toISOString(), fitProfileError: "" });
   } catch (error) {
-    await browser.storage.local.set({ fitProfileError: "Job Finder isn't running, so the fit markers use the last copy of your profile." });
+    // Say what really failed: Job Finder can be running and answering while the reply is unreadable or can't be saved.
+    const detail = String((error && error.message) || error);
+    const message = step === "asking Job Finder" && !/HTTP \d+/.test(detail)
+      ? `Job Finder isn't answering at ${FIT_PROFILE_URL} (${detail}).`
+      : `The profile reached the extension but failed while ${step} (${detail}).`;
+    await browser.storage.local.set({ fitProfileError: /HTTP \d+/.test(detail) ? `${detail}.` : message }).catch(() => {});
   }
 }
 // Estimated distance and 6 a.m. drive time from your Home ZIP to each job's town, worked out by Job Finder on this
