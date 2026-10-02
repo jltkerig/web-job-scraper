@@ -91,3 +91,16 @@ test("a company's own jobs page counts as a jobs page, so its jobs are captured"
   const jobs = parse.fromDom(new JSDOM(html, { url: page }).window.document, page);
   assert.strictEqual(jobs[0].company, "Flywheel");
 });
+
+test("Indeed and USAJOBS are sample-only: no jobs read, no scanning, the page can still be saved", () => {
+  const fs = require("node:fs");
+  const manifest = JSON.parse(fs.readFileSync(require.resolve("../extension/manifest.json"), "utf8"));
+  const entry = manifest.content_scripts.find((item) => item.matches.some((m) => m.includes("indeed.com")));
+  assert.ok(entry.matches.includes("https://www.usajobs.gov/*"));
+  assert.deepStrictEqual(entry.js, ["sites/sample-only.js", "content/capture.js"]);
+  assert.ok(manifest.background.scripts.indexOf("sites/sample-only.js") < manifest.background.scripts.indexOf("background.js"));
+  require("../extension/sites/sample-only.js");
+  const sample = globalThis.SampleParse;
+  assert.strictEqual(sample.onJobsPage(new URL("https://www.indeed.com/jobs?q=web")), false);
+  assert.deepStrictEqual(sample.fromDom({}, "https://www.indeed.com/"), []);
+});
