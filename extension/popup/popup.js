@@ -234,3 +234,19 @@ send({ type: "popup-state" }).then((result) => {
   showRuns(result);
   showPet(result);
 });
+
+// Fit markers: whether the extension has your Job Finder profile, and how fresh it is.
+browser.storage.local.get(["fitProfile", "fitProfileAt", "fitProfileError"]).then((saved) => {
+  const status = document.getElementById("fit-status");
+  const titles = (saved.fitProfile && saved.fitProfile.titles) || [];
+  if (!saved.fitProfile) {
+    status.textContent = "Waiting for your profile: open Job Finder once and the markers start.";
+  } else if (!titles.length) {
+    status.textContent = "Your Job Finder profile has no job titles yet, so nothing is marked.";
+  } else {
+    const when = saved.fitProfileAt ? new Date(saved.fitProfileAt).toLocaleString() : "earlier";
+    status.textContent = `Using ${titles.length} title${titles.length === 1 ? "" : "s"} and ` +
+      `${(saved.fitProfile.skills || []).length} skills from Job Finder (updated ${when}).` +
+      (saved.fitProfileError ? ` ${saved.fitProfileError}` : "");
+  }
+}).catch(() => {});

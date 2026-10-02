@@ -33,6 +33,16 @@ The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt
 
 **While changing the code:** use `about:debugging` → **This Firefox** → **Load Temporary Add-on…** and pick `extension\manifest.json`. **Reload** there picks up changes straight away. Temporary add-ons are removed when Firefox closes.
 
+## Fit markers on LinkedIn
+
+So you know which jobs are worth opening:
+
+- **Highlighted cards:** a job whose title fits one of your Job Finder titles (all its words, or at least half of a two-word-or-longer title) gets a green bar and a **Fit** tag. Hover for the reason, such as *Title matches "graphic design" · Hybrid*. Jobs in a work location you didn't pick (Remote / Hybrid / Onsite on your Job Finder profile) aren't highlighted.
+- **Whole description:** the open job shows its full description straight away, without the "… more" button. The text is already in the page; the extension only removes LinkedIn's height limit. It never clicks.
+- **Job Fit badge:** above "About the job", the share of the skills the listing names that you have, and the ones it asks for that you don't list. Worked out the same way as on Job Finder's Dashboard.
+
+The extension reads your titles, skills and work preferences from Job Finder on this computer (`http://127.0.0.1:5000/extension/fit-profile`) when Firefox starts and every 30 minutes, and keeps the last copy when Job Finder isn't running. The panel's **Fit markers** line says when it was last updated. Nothing is sent to LinkedIn or anywhere else.
+
 ## The toolbar panel
 
 - **LinkedIn — On / Maryland Workforce Exchange — On:** turns capture on or off for each site.
@@ -161,7 +171,7 @@ web-job-scraper\searches\
 ## Tests
 
 - Extension reader: `npm install` once, then `npm test`.
-- Job Finder import: `python -m unittest tests.test_capture_import` in the `job-finder` folder.
+- Job Finder import: `python -m unittest tests.test_capture_import` in the `job-finder-dashboard` folder.
 
 ## Planned later
 
