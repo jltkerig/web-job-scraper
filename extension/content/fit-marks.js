@@ -1,7 +1,10 @@
 // LinkedIn only. Using your Job Finder profile (fetched by background.js into storage as "fitProfile"):
 //   - highlights job cards whose title fits one of your titles (one colour, with a "Fit" tag),
 //   - shows the open job's whole description instead of LinkedIn's shortened one with "… more",
-//   - adds a Job Fit badge above "About the job": the share of the skills it names that you have.
+//   - adds a Job Fit badge above "About the job": the share of the skills it names that you have,
+//   - tags every card with its estimated distance and 6 a.m. drive time from your Home ZIP (worked out by Job Finder),
+//     and lists the cards nearest first. Ordering only sets display styles (CSS "order"); no card is ever moved,
+//     so LinkedIn's own page is left intact.
 // Display only: it never clicks, scrolls, navigates or fetches. The full description is already in the page;
 // LinkedIn only hides part of it with styling, so this undoes that styling instead of pressing "more".
 // Badges live in a shadow root, so the capture code (which reads the page's text) never sees them.
@@ -15,12 +18,17 @@
   const MORE_BUTTON = /^(?:…|\.\.\.)?\s*(?:see|show)?\s*more$/i;
   let profile = null;
   let timer = null;
+  let sortOn = true; // the panel's "nearest first" checkbox
+  let running = false;
+  const distances = new Map(); // job town text -> { miles, minutes, text } or null
+  const reordered = new Set(); // elements given a CSS order
 
   const style = document.createElement("style");
   style.textContent = `
     [${MARK}] { position: relative !important; box-shadow: inset 4px 0 0 #0b7a55 !important;
       background-color: rgba(16, 185, 129, 0.09) !important; }
-    wjs-fit-tag { position: absolute; top: 6px; right: 8px; z-index: 2; pointer-events: none; }`;
+    wjs-fit-tag { position: absolute; top: 6px; right: 8px; z-index: 2; pointer-events: none; }
+    wjs-fit-tag[data-distance] { top: auto; bottom: 6px; }`;
   (document.head || document.documentElement).appendChild(style);
 
   function tag(text, extraCss) {
@@ -32,6 +40,55 @@
       "border-radius: 999px; padding: 1px 8px; letter-spacing: .02em;" + (extraCss || "");
     shadow.appendChild(label);
     return host;
+  }
+
+  async function loadDistances(cards) {
+    const places = [...new Set(cards.map(({ job }) => job.location).filter((place) => place && !distances.has(place)))];
+    if (!places.length) return;
+    try {
+      const reply = await browser.runtime.sendMessage({ type: "distances", places });
+      for (const place of places) if (reply && reply.places && place in reply.places) distances.set(place, reply.places[place]);
+    } catch (error) { /* Job Finder isn't running: no distances this time */ }
+  }
+
+  function markDistances(cards) {
+    for (const { element, job } of cards) {
+      const found = distances.get(job.location);
+      const old = element.querySelector(":scope > wjs-fit-tag[data-distance]");
+      if (!found) { old?.remove(); continue; }
+      if (old && old.dataset.label === found.text) continue;
+      old?.remove();
+      const host = tag(found.text, "background: #374151;");
+      host.dataset.distance = "1";
+      host.dataset.label = found.text;
+      host.title = "Estimated from your Home ZIP, driving at 6 a.m.";
+      if (getComputedStyle(element).position === "static") element.style.setProperty("position", "relative", "important");
+      element.appendChild(host);
+    }
+  }
+
+  // Lists the cards nearest first with CSS "order" on each card's slot in the list. Cards with no known distance
+  // go last; everything else in the list keeps its place.
+  function sortNearestFirst(cards) {
+    for (const element of reordered) element.style.removeProperty("order");
+    reordered.clear();
+    if (!sortOn || cards.length < 2) return;
+    let list = cards[0].element.parentElement;
+    while (list && !cards.every(({ element }) => list.contains(element))) list = list.parentElement;
+    if (!list) return;
+    const slotOf = (element) => { let node = element; while (node.parentElement !== list) node = node.parentElement; return node; };
+    const slots = cards.map(({ element }) => slotOf(element));
+    if (new Set(slots).size !== slots.length) return; // cards share a slot: leave the page alone
+    const place = new Map(Array.from(list.children, (child, index) => [child, index]));
+    const free = slots.map((slot) => place.get(slot)).sort((a, b) => a - b);
+    const minutes = (card) => { const found = distances.get(card.job.location); return found ? found.minutes : 1e9; };
+    const ranked = cards.map((card, i) => ({ slot: slots[i], at: place.get(slots[i]), minutes: minutes(card) }))
+      .sort((a, b) => a.minutes - b.minutes || a.at - b.at);
+    if (!ranked.some((item) => item.minutes < 1e9)) return; // no distances known: nothing to sort by
+    list.style.setProperty("display", "flex", "important");
+    list.style.setProperty("flex-direction", "column", "important");
+    for (const child of list.children) { child.style.setProperty("order", String(place.get(child))); reordered.add(child); }
+    ranked.forEach((item, i) => item.slot.style.setProperty("order", String(free[i])));
   }
 
   function markCards() {
@@ -99,9 +156,18 @@
     heading.parentElement.insertBefore(host, heading);
   }
 
-  function run() {
+  async function run() {
     timer = null;
-    if (!parse.onJobsPage(location)) return;
+    if (!parse.onJobsPage(location) || running) return;
+    running = true;
+    try {
+      const cards = parse.cards(document, location.href);
+      await loadDistances(cards);
+      markDistances(cards);
+      sortNearestFirst(cards);
+    } finally {
+      running = false;
+    }
     markCards();
     const heading = parse.aboutHeading(document);
     if (!heading) return;
@@ -115,15 +181,16 @@
     if (!timer) timer = setTimeout(run, 600);
   }
 
-  browser.storage.local.get("fitProfile").then((saved) => {
+  browser.storage.local.get(["fitProfile", "sortByDistance"]).then((saved) => {
     profile = saved.fitProfile || null;
+    sortOn = saved.sortByDistance !== false;
     schedule();
   }).catch(() => {});
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && changes.fitProfile) {
-      profile = changes.fitProfile.newValue || null;
-      schedule();
-    }
+    if (area !== "local") return;
+    if (changes.fitProfile) profile = changes.fitProfile.newValue || null;
+    if (changes.sortByDistance) sortOn = changes.sortByDistance.newValue !== false;
+    schedule();
   });
   new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
 })();
