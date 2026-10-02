@@ -81,7 +81,7 @@ function finished(context, id) {
   });
 }
 
-test("a run reads both recommended pages, opens up to 10 new jobs, closes its tab and is tagged Done", async () => {
+test("a run reads the recommended pages and the watched companies' pages, opens up to 10 new jobs, closes its tab and is tagged Done", async () => {
   const { context, tabs, alarms } = sandbox({ jobsPerPage: 8 });
   const run = context.addRun(new Date(Date.now() + 3600000).toISOString());
   assert.strictEqual(run.status, "scheduled");
@@ -89,11 +89,12 @@ test("a run reads both recommended pages, opens up to 10 new jobs, closes its ta
   await context.startRun(run.id);
   const done = await finished(context, run.id);
   assert.strictEqual(done.status, "done");
-  assert.strictEqual(done.seen, 16);
-  assert.strictEqual(done.fresh, 16);
+  assert.strictEqual(done.seen, 24);
+  assert.strictEqual(done.fresh, 24);
   assert.strictEqual(done.opened, 10); // at most 10 opened per run
-  assert.match(done.message, /16 jobs, 16 new, 10 opened/);
-  assert.deepStrictEqual(context.visited.slice(0, 2), ["https://www.linkedin.com/jobs/", "https://www.linkedin.com/jobs/collections/recommended/"]);
+  assert.match(done.message, /24 jobs, 24 new, 10 opened/);
+  assert.deepStrictEqual(context.visited.slice(0, 3), ["https://www.linkedin.com/jobs/", "https://www.linkedin.com/jobs/collections/recommended/",
+    "https://www.linkedin.com/company/flywheel-digital/jobs/"]);
   assert.strictEqual(tabs.size, 0, "the run's tab was left open");
   assert.strictEqual(context.isRunTab(1), false);
 });

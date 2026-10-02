@@ -359,14 +359,17 @@
     try {
       const path = new URL(pageUrl).pathname.toLowerCase();
       return path === "/jobs" || path === "/jobs/" || path.startsWith("/jobs/view/") ||
-        path.startsWith("/jobs/search") || path.startsWith("/jobs/collections");
+        path.startsWith("/jobs/search") || path.startsWith("/jobs/collections") || COMPANY_JOBS.test(path);
     } catch (error) {
       return false;
     }
   }
 
+  // A company's own jobs page (/company/flywheel-digital/jobs/) lists jobs like the Jobs section does.
+  const COMPANY_JOBS = /^\/company\/[^/]+\/jobs\/?$/i;
+
   function onJobsPage(loc) {
-    return loc.pathname.startsWith("/jobs");
+    return loc.pathname.startsWith("/jobs") || COMPANY_JOBS.test(loc.pathname);
   }
 
   // The job open on this page: its own page, or the details pane next to a list (?currentJobId=).

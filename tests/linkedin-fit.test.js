@@ -80,3 +80,14 @@ test("the page: fitting cards are highlighted, the description opens, the badge 
   assert.ok(!/Job Fit|"Fit"/.test(after));
   window.close();
 });
+
+test("a company's own jobs page counts as a jobs page, so its jobs are captured", () => {
+  const parse = globalThis.LinkedInParse;
+  const page = "https://www.linkedin.com/company/flywheel-digital/jobs/";
+  assert.ok(parse.onJobsPage(new URL(page)));
+  assert.ok(parse.expectsJobs(page));
+  assert.ok(!parse.onJobsPage(new URL("https://www.linkedin.com/company/flywheel-digital/people/")));
+  const html = `<main><a href="https://www.linkedin.com/jobs/view/4400000099/"><p>Web Designer</p><p>Flywheel</p><p>Remote</p></a></main>`;
+  const jobs = parse.fromDom(new JSDOM(html, { url: page }).window.document, page);
+  assert.strictEqual(jobs[0].company, "Flywheel");
+});

@@ -58,7 +58,7 @@ The number on the icon is how many new jobs were captured today. **Clear count**
 
 Pick a date and time in the panel's **Scheduled LinkedIn runs** section and click **Add**. Only one-off runs for now. **Run now** starts one straight away. At that time:
 
-1. Firefox opens a **background tab** with LinkedIn's Jobs home ("Top job picks for you") and then the "Recommended for you" collection. It reads page 1 of each, the same way it reads pages you browse.
+1. Firefox opens a **background tab** with LinkedIn's Jobs home ("Top job picks for you") and then the "Recommended for you" collection, then the LinkedIn jobs page of each company you watch (Flywheel for now; add more to `RUN_COMPANY_PAGES` in `extensionuns.js`). It reads page 1 of each, the same way it reads pages you browse.
 2. It opens up to **10 new jobs** it doesn't have details for yet, one every 20 to 45 seconds at random, to collect their descriptions and locations.
 3. It closes the tab and saves the jobs to the day's file, ready for Job Finder's import. The fox never appears in that tab.
 

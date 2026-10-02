@@ -10,6 +10,10 @@ const RUN_PAGES = [
   "https://www.linkedin.com/jobs/", // "Top job picks for you"
   "https://www.linkedin.com/jobs/collections/recommended/", // "Recommended for you"
 ];
+// Companies you want checked every run: their own LinkedIn jobs pages. Add more lines here.
+const RUN_COMPANY_PAGES = [
+  "https://www.linkedin.com/company/flywheel-digital/jobs/", // Flywheel
+];
 const RUN_MAX_OPENED = 10; // new jobs opened per run for their details
 const RUN_GAP_MS = [20000, 45000]; // time between opening jobs, picked at random
 const RUN_PAGE_WAIT_MS = [12000, 20000]; // time on each list page for its jobs to load
@@ -158,8 +162,8 @@ async function startRun(id) {
   }
   activeRun = { id, tabId: tab.id, seen: new Set(), fresh: new Set(), stopped: null };
   try {
-    // 1. The recommended-jobs pages: page 1 of each.
-    for (const page of RUN_PAGES) {
+    // 1. The recommended-jobs pages and the watched companies' jobs pages: page 1 of each.
+    for (const page of [...RUN_PAGES, ...RUN_COMPANY_PAGES]) {
       await openInRunTab(page);
       await checkRunTab();
       await pause(randomBetween(RUN_PAGE_WAIT_MS));
