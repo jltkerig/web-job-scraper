@@ -34,6 +34,7 @@ test("a search page gives one job per result box", () => {
   assert.strictEqual(first.salary, "$63,940/year (GS 8-13)");
   assert.strictEqual(first.posted, "2026-09-01");
   assert.strictEqual(first.closed, false);
+  assert.strictEqual(first.closes, "2027-01-31"); // kept, so Job Finder can close it once the date passes
   assert.strictEqual(first.url, "https://www.usajobs.gov/job/880142800");
   assert.strictEqual(first.page_kind, "search");
   assert.strictEqual(second.location, "Cannon AFB, NM");
@@ -87,6 +88,7 @@ test("a job page is read from its banner, Overview box and sections", () => {
   assert.strictEqual(job.location, "Stuttgart, Germany");
   assert.strictEqual(job.salary, "$57,675 - $114,825/year");
   assert.strictEqual(job.posted, "2026-09-24");
+  assert.strictEqual(job.closes, "2099-10-06");
   assert.strictEqual(job.work_arrangement, "Remote");
   assert.strictEqual(job.closed, false);
   assert.strictEqual(job.level, "opened");

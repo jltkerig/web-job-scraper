@@ -63,7 +63,7 @@
 
   function job(fields, pageUrl) {
     const record = {
-      site: SITE, title: "", company: "", location: "", salary: "", work_arrangement: "", posted: "", description: "",
+      site: SITE, title: "", company: "", location: "", salary: "", work_arrangement: "", posted: "", closes: "", description: "",
       closed: false, applied: false, url: pageUrl, job_id: idFromUrl(pageUrl) || "", ...fields,
     };
     record.title = record.title.trim();
@@ -95,7 +95,7 @@
       jobs.push(job({
         job_id: id, title: clean(link.textContent), company: agency || department || "",
         location: pin ? place(pin.closest("div").textContent) : "",
-        salary: pay(money), posted: range ? `${range[3]}-${range[1]}-${range[2]}` : "",
+        salary: pay(money), posted: range ? `${range[3]}-${range[1]}-${range[2]}` : "", closes: range && range[4] ? `${range[6]}-${range[4]}-${range[5]}` : "",
         closed: Boolean(end && end.getTime() < Date.now()), url,
       }, pageUrl));
     }
@@ -141,7 +141,7 @@
     const telework = /^yes$/i.test(after(overview, "Telework eligible"));
     return job({
       title, company: agency, location: place(where), salary: pay(salary),
-      posted: range ? `${range[3]}-${range[1]}-${range[2]}` : "",
+      posted: range ? `${range[3]}-${range[1]}-${range[2]}` : "", closes: range && range[4] ? `${range[6]}-${range[4]}-${range[5]}` : "",
       work_arrangement: remote ? "Remote" : telework ? "Hybrid" : "",
       closed: Boolean(end && end.getTime() < Date.now()) || overview.some((line) => /^(?:closed|this job announcement is closed)$/i.test(line)),
       description: sections.join("\n\n").slice(0, 20000),
