@@ -85,7 +85,7 @@ function show(result) {
     const link = el("a", { href: job.url, textContent: job.title || job.url });
     link.addEventListener("click", (event) => {
       event.preventDefault();
-      if (/^https:\/\/(www\.linkedin\.com|(www\.)?mwejobs\.maryland\.gov)\//.test(job.url)) browser.tabs.create({ url: job.url });
+      if (/^https:\/\/(www\.linkedin\.com|(www\.)?mwejobs\.maryland\.gov|(www\.)?usajobs\.gov)\//.test(job.url)) browser.tabs.create({ url: job.url });
     });
     needsList.append(el("li", {}, [link, el("span", { className: "company", textContent: job.company || "" })]));
   }
