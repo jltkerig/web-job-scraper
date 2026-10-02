@@ -98,7 +98,7 @@ button:hover { border-color: var(--accent); }
   overflow-y: auto;
 }
 
-#needs-list li { padding: 4px 0; border-top: 1px solid var(--line); }
+#needs-list li { padding: 4px 0; border-bottom: 1px solid var(--line); }
 #needs-list a { color: var(--accent); text-decoration: none; }
 #needs-list a:hover { text-decoration: underline; }
 #needs-list .company { color: var(--muted); display: block; }
