@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Web Job Scraper",
-  "version": "0.10.12",
+  "version": "0.10.13",
   "description": "Saves the jobs you browse on LinkedIn and the Maryland Workforce Exchange into daily files that Job Finder imports.",
   "browser_specific_settings": {
     "gecko": {
@@ -37,6 +37,11 @@
       "matches": ["https://www.linkedin.com/*"],
       "js": ["sites/linkedin-parse.js", "content/capture.js", "pet/sprites.js", "pet/pet.js", "content/pet-strip.js",
              "sites/linkedin-fit.js", "content/fit-marks.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["http://127.0.0.1:5000/*"],
+      "js": ["content/jf-bridge.js"],
       "run_at": "document_idle"
     },
     {

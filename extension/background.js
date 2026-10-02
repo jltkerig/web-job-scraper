@@ -544,6 +544,9 @@ browser.runtime.onMessage.addListener((message, sender) => {
         return true;
       case "distances":
         return distancesFor(message.places);
+      case "fit-profile-push": // a Job Finder page hands the profile over (works even if the extension can't reach it itself)
+        if (message.profile && Array.isArray(message.profile.titles)) { lastFitFetch = Date.now(); await saveFitProfile(message.profile); }
+        return true;
       case "fit-profile-now": { // the LinkedIn page has no profile (or none with titles): read it now, and say what happened
         await refreshFitProfile();
         const saved = await browser.storage.local.get(["fitProfile", "fitProfileError"]);
@@ -625,45 +628,69 @@ browser.tabs.onRemoved.addListener((tabId) => {
 // Your Job Finder profile (titles, skills, work preferences) for marking LinkedIn jobs that may fit
 // (content/fit-marks.js). Read from Job Finder on this computer every 30 minutes; the last copy is kept when
 // Job Finder isn't running.
-const FIT_PROFILE_URL = "http://127.0.0.1:5000/extension/fit-profile";
 let lastFitFetch = 0;
 // Also asked for when a page loads and the copy is over 2 minutes old, so a change to skills or titles in Job Finder
 // reaches the fit marks soon after it is saved.
 function refreshFitProfileIfStale() {
   if (Date.now() - lastFitFetch > 2 * 60 * 1000) refreshFitProfile();
 }
+// Reads one of Job Finder's /extension/ pages. Directly first; if Firefox refuses that connection from the extension
+// (a "NetworkError"), through an open Job Finder tab, whose page script (content/jf-bridge.js) asks for it.
+const JOB_FINDER = "http://127.0.0.1:5000";
+async function jobFinderJson(path) {
+  let direct = "";
+  try {
+    const response = await fetch(JOB_FINDER + path, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Job Finder answered HTTP ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    direct = String((error && error.message) || error);
+    if (/HTTP \d+/.test(direct)) throw error; // it answered; going around won't change the answer
+  }
+  try {
+    const tabs = await browser.tabs.query({ url: [`${JOB_FINDER}/*`] });
+    for (const tab of tabs) {
+      try {
+        const reply = await browser.tabs.sendMessage(tab.id, { type: "jf-fetch", path });
+        if (reply && reply.ok) return reply.data;
+      } catch (error) {
+        // that tab was loaded before the extension was; try the next one
+      }
+    }
+  } catch (error) {
+    // no tab access: fall through to the message below
+  }
+  throw new Error(`Firefox won't let the extension connect to Job Finder (${direct}). Open Job Finder in a Firefox tab (${JOB_FINDER}) and reload it; it will pass your profile on from there`);
+}
+
+async function saveFitProfile(profile) {
+  distanceCache.clear(); // the Home ZIP may have changed
+  await browser.storage.local.set({ fitProfile: profile, fitProfileAt: new Date().toISOString(), fitProfileError: "" });
+}
+
 async function refreshFitProfile() {
   lastFitFetch = Date.now();
   let step = "asking Job Finder";
   try {
-    const response = await fetch(FIT_PROFILE_URL, { cache: "no-store" });
-    if (!response.ok) throw new Error(`Job Finder answered HTTP ${response.status}`);
-    step = "reading its reply";
-    const profile = await response.json();
-    distanceCache.clear(); // the Home ZIP may have changed
+    const profile = await jobFinderJson("/extension/fit-profile");
     step = "saving the profile in Firefox";
-    await browser.storage.local.set({ fitProfile: profile, fitProfileAt: new Date().toISOString(), fitProfileError: "" });
+    await saveFitProfile(profile);
   } catch (error) {
     // Say what really failed: Job Finder can be running and answering while the reply is unreadable or can't be saved.
     const detail = String((error && error.message) || error);
-    const message = step === "asking Job Finder" && !/HTTP \d+/.test(detail)
-      ? `Job Finder isn't answering at ${FIT_PROFILE_URL} (${detail}).`
-      : `The profile reached the extension but failed while ${step} (${detail}).`;
-    await browser.storage.local.set({ fitProfileError: /HTTP \d+/.test(detail) ? `${detail}.` : message }).catch(() => {});
+    const message = step === "asking Job Finder" ? `${detail}.` : `The profile reached the extension but failed while ${step} (${detail}).`;
+    await browser.storage.local.set({ fitProfileError: message }).catch(() => {});
   }
 }
 // Estimated distance and 6 a.m. drive time from your Home ZIP to each job's town, worked out by Job Finder on this
 // computer (the same estimate as its Dashboard). Remembered until the profile is read again.
-const DISTANCES_URL = "http://127.0.0.1:5000/extension/distances?places=";
 const distanceCache = new Map(); // place -> { miles, minutes, text } or null
 async function distancesFor(places) {
   const wanted = [...new Set((places || []).map(String))].slice(0, 100);
   const missing = wanted.filter((place) => !distanceCache.has(place));
   if (missing.length) {
     try {
-      const response = await fetch(DISTANCES_URL + encodeURIComponent(missing.join("|")), { cache: "no-store" });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      const data = await jobFinderJson("/extension/distances?places=" + encodeURIComponent(missing.join("|")));
       for (const place of missing) distanceCache.set(place, (data.places || {})[place] || null);
       browser.storage.local.set({ distanceError: "" }).catch(() => {});
     } catch (error) {
