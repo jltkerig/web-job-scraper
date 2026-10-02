@@ -16,7 +16,14 @@ test("title fit: good when every word of a title is there, word forms count", ()
 });
 
 test("title fit: maybe when half a title matches, nothing otherwise", () => {
-  assert.strictEqual(fit.titleFit("Content Strategist", TITLES).level, "maybe");
+  assert.strictEqual(fit.titleFit("Production Designer", TITLES).level, "maybe"); // shares the job word "designer"
+  assert.strictEqual(fit.titleFit("Content Strategist", TITLES).level, ""); // shares only "content", not the job word
+  assert.strictEqual(fit.titleFit("Web Content Specialist", ["content designer"]).level, "");
+  // A common job word ("specialist") proves nothing on its own: the descriptive word has to match too.
+  assert.strictEqual(fit.titleFit("Marketing Specialist", ["production specialist"]).level, "");
+  assert.strictEqual(fit.titleFit("Digital Content Specialist", ["production specialist"]).level, "");
+  assert.strictEqual(fit.titleFit("Digital Production Manager", ["production specialist"]).level, "maybe");
+  assert.strictEqual(fit.titleFit("Web Developer II", ["frontend web developer"]).level, "maybe");
   assert.strictEqual(fit.titleFit("Registered Nurse", TITLES).level, "");
   assert.strictEqual(fit.titleFit("Anything", []).level, "");
 });
@@ -224,5 +231,64 @@ test("on the 2026 layout: Fit tags, 'Remote' first then nearest, unknown last, r
   const labels = Array.from(window.document.querySelectorAll("wjs-fit-tag[data-distance]"), (tag) => tag.dataset.label).sort();
   assert.deepStrictEqual(labels, ["21 mi · ~45 min", "39 mi · ~75 min", "Remote · no commute"]);
   assert.strictEqual(window.document.querySelectorAll("[data-wjs-fit]").length, 2); // both Graphic Designer cards fit
+  window.close();
+});
+
+function hidingPage({ hidden = [], blocked = [] } = {}) {
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
+  const stored = { hiddenCompanies: hidden, fitProfile: { titles: ["Graphic Designer"], skills: [], work_preferences: [], blocked_companies: blocked }, sortByDistance: true };
+  const saves = [], listeners = [];
+  window.browser = { runtime: { sendMessage: async () => ({ places: { "Baltimore, MD (On-site)": { minutes: 45, text: "21 mi · ~45 min" } } }) },
+    storage: { local: { get: async () => stored, set: async (values) => { saves.push(values); Object.assign(stored, values); } },
+      onChanged: { addListener: (fn) => listeners.push(fn) } } };
+  window.LinkedInParse = globalThis.LinkedInParse;
+  window.LinkedInFit = globalThis.LinkedInFit;
+  window.eval(require("node:fs").readFileSync(require.resolve("../extension/content/fit-marks.js"), "utf8"));
+  return { window, saves, listeners };
+}
+const slotOf = (window, id) => window.document.querySelector(`[componentkey='job-card-component-ref-${id}']`).closest("#column > div");
+
+test("every card gets a Fit tag AND a hide button; the Fit tag isn't lost when a distance tag is there", async () => {
+  const { window } = hidingPage();
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4466104575']");
+  assert.ok(card.querySelector(":scope > wjs-fit-tag[data-fit]"));
+  assert.ok(card.querySelector(":scope > wjs-fit-tag[data-distance]"));
+  assert.strictEqual(card.querySelector(":scope > wjs-fit-tag[data-hide]").dataset.company, "GemHarvest Executive Recruiting");
+  window.close();
+});
+
+test("the X hides every job from that company, remembers it, and never clicks the card", async () => {
+  const { window, saves } = hidingPage();
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4460751737']");
+  let cardClicked = false;
+  card.addEventListener("click", () => { cardClicked = true; });
+  card.querySelector("wjs-fit-tag[data-hide]").shadowRoot.querySelector("button").click();
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  assert.deepStrictEqual([...saves.at(-1).hiddenCompanies], ["Kidde Global Solutions"]);
+  assert.strictEqual(cardClicked, false);
+  assert.strictEqual(slotOf(window, "4460751737").style.getPropertyValue("display"), "none");
+  assert.notStrictEqual(slotOf(window, "4466104575").style.getPropertyValue("display"), "none"); // others stay
+  window.close();
+});
+
+test("companies you hid before, and ones blocked in Job Finder, are hidden on load (spelling and case don't matter)", async () => {
+  const { window } = hidingPage({ hidden: ["city of  LANCASTER"], blocked: ["gemharvest executive recruiting"] });
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  assert.strictEqual(slotOf(window, "4472661323").style.getPropertyValue("display"), "none");
+  assert.strictEqual(slotOf(window, "4466104575").style.getPropertyValue("display"), "none");
+  assert.notStrictEqual(slotOf(window, "4460751737").style.getPropertyValue("display"), "none");
+  window.close();
+});
+
+test("taking a company out of the hidden list (the panel's Unhide) brings its cards back", async () => {
+  const { window, listeners } = hidingPage({ hidden: ["City of Lancaster"] });
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  assert.strictEqual(slotOf(window, "4472661323").style.getPropertyValue("display"), "none");
+  for (const listener of listeners) listener({ hiddenCompanies: { newValue: [] } }, "local"); // what Firefox sends the page
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  assert.notStrictEqual(slotOf(window, "4472661323").style.getPropertyValue("display"), "none");
   window.close();
 });

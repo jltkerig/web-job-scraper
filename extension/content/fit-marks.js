@@ -22,13 +22,16 @@
   let running = false;
   const distances = new Map(); // job town text -> { miles, minutes, text } or null
   const reordered = new Set(); // elements given a CSS order
+  let hiddenCompanies = []; // companies you hid with the card's X button (shown in the panel, where you can bring them back)
+  const company = (name) => String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 
   const style = document.createElement("style");
   style.textContent = `
     [${MARK}] { position: relative !important; box-shadow: inset 4px 0 0 #0b7a55 !important;
       background-color: rgba(16, 185, 129, 0.09) !important; }
     wjs-fit-tag { position: absolute; top: 6px; right: 8px; z-index: 2; pointer-events: none; }
-    wjs-fit-tag[data-distance] { top: auto; bottom: 6px; }`;
+    wjs-fit-tag[data-distance] { top: auto; bottom: 6px; }
+    wjs-fit-tag[data-hide] { top: 30px; pointer-events: auto; }`;
   (document.head || document.documentElement).appendChild(style);
 
   function tag(text, extraCss) {
@@ -40,6 +43,53 @@
       "border-radius: 999px; padding: 1px 8px; letter-spacing: .02em;" + (extraCss || "");
     shadow.appendChild(label);
     return host;
+  }
+
+  // A small X on each card: hides every job from that company. It lives in a shadow root and swallows its own clicks,
+  // so LinkedIn never sees them (the card doesn't open).
+  function hideButton(name) {
+    const host = document.createElement("wjs-fit-tag");
+    host.dataset.hide = "1";
+    host.dataset.company = name;
+    const shadow = host.attachShadow({ mode: "open" });
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "✕";
+    button.title = `Hide jobs from ${name}`;
+    button.setAttribute("aria-label", `Hide jobs from ${name}`);
+    button.style.cssText = "font: 700 12px/1 system-ui, sans-serif; width: 22px; height: 22px; border-radius: 50%; " +
+      "border: 1px solid #9ca3af; background: #fff; color: #4b5563; cursor: pointer; padding: 0;";
+    for (const type of ["pointerdown", "mousedown", "mouseup", "keydown"]) {
+      button.addEventListener(type, (event) => event.stopPropagation());
+    }
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (!hiddenCompanies.some((saved) => company(saved) === company(name))) hiddenCompanies = [...hiddenCompanies, name];
+      try { await browser.storage.local.set({ hiddenCompanies }); } catch (error) { /* hidden until the page reloads */ }
+      schedule();
+    });
+    shadow.appendChild(button);
+    return host;
+  }
+
+  function isHidden(job) {
+    const key = company(job.company);
+    if (!key) return false;
+    return hiddenCompanies.some((saved) => company(saved) === key)
+      || ((profile && profile.blocked_companies) || []).some((saved) => company(saved) === key);
+  }
+
+  // Each card's slot in the list (the list's own child that holds it), so a whole slot can be hidden or ordered.
+  function slotsFor(cards) {
+    const slots = new Map(cards.map(({ element }) => [element, element]));
+    if (cards.length < 2) return slots;
+    let list = cards[0].element.parentElement;
+    while (list && !cards.every(({ element }) => list.contains(element))) list = list.parentElement;
+    if (!list) return slots;
+    const found = cards.map(({ element }) => { let node = element; while (node.parentElement !== list) node = node.parentElement; return node; });
+    if (new Set(found).size === found.length) cards.forEach(({ element }, i) => slots.set(element, found[i]));
+    return slots;
   }
 
   const retryAt = new Map(); // place -> time before which it isn't asked about again after a failure
@@ -105,22 +155,52 @@
     ranked.forEach((item, i) => item.slot.style.setProperty("order", String(free[i])));
   }
 
-  function markCards() {
-    for (const { element, job } of parse.cards(document, location.href)) {
+  function markCards(cards) {
+    for (const { element, job } of cards) {
       const result = profile ? fit.cardFit(job, profile) : null;
       const current = element.getAttribute(MARK);
       if (!result) {
         if (current !== null) {
           element.removeAttribute(MARK);
-          element.querySelector(":scope > wjs-fit-tag")?.remove();
+          element.querySelector(":scope > wjs-fit-tag[data-fit]")?.remove();
         }
         continue;
       }
       if (current === result.reason) continue;
       element.setAttribute(MARK, result.reason);
       element.setAttribute("title", result.reason);
-      if (!element.querySelector(":scope > wjs-fit-tag")) element.appendChild(tag("Fit"));
+      if (!element.querySelector(":scope > wjs-fit-tag[data-fit]")) {
+        const host = tag("Fit");
+        host.dataset.fit = "1";
+        element.appendChild(host);
+      }
     }
+  }
+
+  // Adds the X button to each shown card, and hides (or brings back) whole cards by company.
+  function applyHiding(all, slots) {
+    const shown = [];
+    for (const card of all) {
+      const slot = slots.get(card.element);
+      if (isHidden(card.job)) {
+        slot.style.setProperty("display", "none", "important");
+        slot.setAttribute("data-wjs-hidden", "1");
+        continue;
+      }
+      if (slot.hasAttribute("data-wjs-hidden")) {
+        slot.style.removeProperty("display");
+        slot.removeAttribute("data-wjs-hidden");
+      }
+      shown.push(card);
+      const name = card.job.company;
+      const old = card.element.querySelector(":scope > wjs-fit-tag[data-hide]");
+      if (name && (!old || old.dataset.company !== name)) {
+        old?.remove();
+        if (getComputedStyle(card.element).position === "static") card.element.style.setProperty("position", "relative", "important");
+        card.element.appendChild(hideButton(name));
+      }
+    }
+    return shown;
   }
 
   // The nearest box around "About the job" that holds the description, as the capture code finds it.
@@ -175,14 +255,15 @@
     if (!parse.onJobsPage(location) || running) return;
     running = true;
     try {
-      const cards = parse.cards(document, location.href);
+      const all = parse.cards(document, location.href);
+      const cards = applyHiding(all, slotsFor(all));
       await loadDistances(cards);
       markDistances(cards);
       sortNearestFirst(cards);
+      markCards(cards);
     } finally {
       running = false;
     }
-    markCards();
     const heading = parse.aboutHeading(document);
     if (!heading) return;
     const box = descriptionBox(heading);
@@ -195,14 +276,16 @@
     if (!timer) timer = setTimeout(run, 600);
   }
 
-  browser.storage.local.get(["fitProfile", "sortByDistance"]).then((saved) => {
+  browser.storage.local.get(["fitProfile", "sortByDistance", "hiddenCompanies"]).then((saved) => {
     profile = saved.fitProfile || null;
     sortOn = saved.sortByDistance !== false;
+    hiddenCompanies = saved.hiddenCompanies || [];
     schedule();
   }).catch(() => {});
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (changes.fitProfile) profile = changes.fitProfile.newValue || null;
+    if (changes.hiddenCompanies) hiddenCompanies = changes.hiddenCompanies.newValue || [];
     if (changes.sortByDistance) sortOn = changes.sortByDistance.newValue !== false;
     schedule();
   });
