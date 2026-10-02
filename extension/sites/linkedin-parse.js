@@ -267,11 +267,12 @@
 
   // Job cards in lists: links to /jobs/view/<id> or to a list with currentJobId=<id>. In the 2026 layout the link
   // wraps the whole card: title, company, location, then pay, benefits, "Promoted", "Applied".
-  function fromDom(doc, pageUrl) {
-    const jobs = new Map();
+  // Each card as { element, job }: element is the box the card's text came from (used to mark good fits).
+  function cards(doc, pageUrl) {
+    const found = new Map();
     for (const link of doc.querySelectorAll("a[href*='/jobs/view/'], a[href*='currentJobId=']")) {
       const id = idFromUrl(link.getAttribute("href"));
-      if (!id || jobs.has(id)) continue;
+      if (!id || found.has(id)) continue;
       // Only links into the Jobs section are job cards; others (messaging a contact "about this job") only mention it.
       let path = "";
       try {
@@ -280,13 +281,17 @@
         continue;
       }
       if (!path.startsWith("/jobs")) continue;
+      let element = link;
       let card = lines(link);
       if (card.length < 2) {
         // Older layout: the link holds only the title and the card is its list item.
         const box = link.closest("li, [data-job-id], [data-occludable-job-id]");
         const ids = box ? new Set(Array.from(box.querySelectorAll("a[href*='/jobs/view/'], a[href*='currentJobId=']"),
           (node) => idFromUrl(node.getAttribute("href")))) : new Set();
-        if (box && ids.size === 1) card = lines(box);
+        if (box && ids.size === 1) {
+          card = lines(box);
+          element = box;
+        }
       }
       // A lone "On-site" link (the work-place tag on a job's own page) is not a card, and neither is a company card
       // ("201-500 employees", "12K followers").
@@ -299,7 +304,23 @@
       job.salary = card.find((line) => PAY_TEXT.test(line)) || "";
       job.applied = card.some((line) => APPLIED_LINE.test(line));
       job.closed = card.some((line) => CLOSED_TEXT.test(line));
-      jobs.set(id, job);
+      job.work_arrangement = arrangementFromText(card.find((line) => WORKPLACE_LINE.test(line)) || job.location);
+      found.set(id, { element, job });
+    }
+    return Array.from(found.values());
+  }
+
+  // The "About the job" heading of the job open on the page, if any.
+  function aboutHeading(doc) {
+    return Array.from(doc.querySelectorAll("h1, h2, h3"))
+      .find((node) => /^\s*about the job\s*$/i.test(node.textContent || "")) || null;
+  }
+
+  function fromDom(doc, pageUrl) {
+    const jobs = new Map();
+    for (const { job } of cards(doc, pageUrl)) {
+      job.work_arrangement = ""; // filled in by finish(), as before
+      jobs.set(job.job_id, job);
     }
     const detail = detailFromDom(doc, pageUrl);
     if (detail) {
@@ -355,7 +376,7 @@
 
   root.LinkedInParse = {
     SITE, NAME: "LinkedIn", jobUrl, idFromUrl, pageKind, fromVoyager, fromDom, fromEmbedded, expectsJobs, onJobsPage,
-    detailId, CLOSED_TEXT,
+    detailId, CLOSED_TEXT, cards, aboutHeading,
   };
   root.CaptureParse = root.LinkedInParse; // the reader content/capture.js uses on LinkedIn pages
 })(typeof globalThis !== "undefined" ? globalThis : this);

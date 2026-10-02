@@ -571,11 +571,30 @@ browser.tabs.onRemoved.addListener((tabId) => {
   if (site) flush(true);
 });
 
+// Your Job Finder profile (titles, skills, work preferences) for marking LinkedIn jobs that may fit
+// (content/fit-marks.js). Read from Job Finder on this computer every 30 minutes; the last copy is kept when
+// Job Finder isn't running.
+const FIT_PROFILE_URL = "http://127.0.0.1:5000/extension/fit-profile";
+async function refreshFitProfile() {
+  try {
+    const response = await fetch(FIT_PROFILE_URL, { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const profile = await response.json();
+    await browser.storage.local.set({ fitProfile: profile, fitProfileAt: new Date().toISOString(), fitProfileError: "" });
+  } catch (error) {
+    await browser.storage.local.set({ fitProfileError: "Job Finder isn't running, so the fit markers use the last copy of your profile." });
+  }
+}
+refreshFitProfile();
+
 browser.alarms.create("flush", { periodInMinutes: 1 });
+browser.alarms.create("fit-profile", { periodInMinutes: 30 });
 browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "flush") {
     flush(false);
     updateBadge(); // rolls the "new today" count over at midnight
+  } else if (alarm.name === "fit-profile") {
+    refreshFitProfile();
   } else if (alarm.name.startsWith("run:")) {
     startRun(alarm.name.slice(4)); // runs.js: a scheduled run's time has come
   }
