@@ -104,3 +104,46 @@ test("Indeed and USAJOBS are sample-only: no jobs read, no scanning, the page ca
   assert.strictEqual(sample.onJobsPage(new URL("https://www.indeed.com/jobs?q=web")), false);
   assert.deepStrictEqual(sample.fromDom({}, "https://www.indeed.com/"), []);
 });
+
+const CARDS = `<!doctype html><html><body><main><ul id="list">
+  <li><div class="w"><a href="https://www.linkedin.com/jobs/search-results/?currentJobId=4400000021"><p>Web Designer</p><p>Far Co</p><p>Lancaster, PA</p></a></div></li>
+  <li><div class="w"><a href="https://www.linkedin.com/jobs/search-results/?currentJobId=4400000022"><p>Web Designer</p><p>Mystery Co</p><p>Nowhereville, ZZ</p></a></div></li>
+  <li><div class="w"><a href="https://www.linkedin.com/jobs/search-results/?currentJobId=4400000023"><p>Web Designer</p><p>Near Co</p><p>Bel Air, MD</p></a></div></li>
+  <li><div class="w"><a href="https://www.linkedin.com/jobs/search-results/?currentJobId=4400000024"><p>Web Designer</p><p>Mid Co</p><p>Towson, MD</p></a></div></li>
+</ul></main></body></html>`;
+
+function cardsPage(sortByDistance) {
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4400000021";
+  const window = new JSDOM(CARDS, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
+  const answers = { "Lancaster, PA": { minutes: 75, text: "39 mi · ~75 min" }, "Bel Air, MD": { minutes: 15, text: "5 mi · ~15 min" },
+    "Towson, MD": { minutes: 45, text: "19 mi · ~45 min" }, "Nowhereville, ZZ": null };
+  const asked = [];
+  window.browser = { runtime: { sendMessage: async (message) => { asked.push(message); return { places: answers }; } },
+    storage: { local: { get: async () => ({ fitProfile: { titles: ["Web Designer"], skills: [], work_preferences: [] }, sortByDistance }),
+      }, onChanged: { addListener() {} } } };
+  window.LinkedInParse = globalThis.LinkedInParse;
+  window.LinkedInFit = globalThis.LinkedInFit;
+  window.eval(require("node:fs").readFileSync(require.resolve("../extension/content/fit-marks.js"), "utf8"));
+  return { window, asked };
+}
+
+test("every card shows its estimated drive and the list goes nearest first, unknown last", async () => {
+  const { window, asked } = cardsPage(true);
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  assert.deepStrictEqual([...asked[0].places].sort(), ["Bel Air, MD", "Lancaster, PA", "Nowhereville, ZZ", "Towson, MD"]);
+  const order = Array.from(window.document.querySelectorAll("#list > li"), (li) => [li.querySelector("p:nth-child(2)").textContent, Number(li.style.order)]);
+  const byOrder = order.slice().sort((a, b) => a[1] - b[1]).map(([name]) => name);
+  assert.deepStrictEqual(byOrder, ["Near Co", "Mid Co", "Far Co", "Mystery Co"]);
+  const labels = Array.from(window.document.querySelectorAll("wjs-fit-tag[data-distance]"), (tag) => tag.dataset.label).sort();
+  assert.deepStrictEqual(labels, ["19 mi · ~45 min", "39 mi · ~75 min", "5 mi · ~15 min"]); // none for the unknown town
+  assert.strictEqual(window.document.querySelector("#list").style.getPropertyValue("flex-direction"), "column");
+  window.close();
+});
+
+test("with the panel's checkbox off, distances are shown but nothing is reordered", async () => {
+  const { window } = cardsPage(false);
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  assert.strictEqual(window.document.querySelectorAll("wjs-fit-tag[data-distance]").length, 3);
+  assert.ok(Array.from(window.document.querySelectorAll("#list > li")).every((li) => li.style.order === ""));
+  window.close();
+});
