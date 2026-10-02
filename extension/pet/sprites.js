@@ -237,7 +237,8 @@
     [[0, 0], [0, 1], [0, 1], [0, 0]],
   ];
 
-  function stand({ walk = -1, eyes = true, tail = "TAIL", bob = 0, rise = 0 } = {}) {
+  // headLift raises the head and nose (sniffing the air).
+  function stand({ walk = -1, eyes = true, tail = "TAIL", bob = 0, rise = 0, headLift = 0 } = {}) {
     const frame = new Map();
     const top = 23 + bob - rise;
     stamp(frame, tail === "UP" ? TAIL_UP : TAIL, 0, 9 + bob - rise);
@@ -246,8 +247,8 @@
       leg(frame, x, top, dx, lift);
     });
     stamp(frame, BODY, 6, 15 + bob - rise);
-    stamp(frame, HEAD, 19, 8 + bob - rise);
-    dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 19, 8 + bob - rise);
+    stamp(frame, HEAD, 19, 8 + bob - rise - headLift);
+    dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 19, 8 + bob - rise - headLift);
     return frame;
   }
 
@@ -295,6 +296,10 @@
     sleep: [lie(), lie({ breathe: 1 })],
     crouch: crouch(),
     leap: stand({ walk: 0, tail: "UP", rise: 4 }),
+    // Sniffing the air: standing with the nose lifted, twitching between two heights.
+    sniff: [stand({ headLift: 2 }), stand({ headLift: 3 })],
+    // Running in circles after its tail: the walk cycle with the tail up and bouncing.
+    run: [0, 1, 2, 3].map((walk) => stand({ walk, tail: "UP", bob: walk % 2 === 1 ? 1 : 0 })),
   };
 
   // Petal colours, [petal, lip] replacing B and b, for each kind of flower.

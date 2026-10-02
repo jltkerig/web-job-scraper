@@ -151,7 +151,7 @@ test("no bee with an empty garden, in the panel, or with reduce animations on", 
 test("the fox is drawn in every state even when the frame clock is a moment behind (it used to vanish)", () => {
   const pet = fox();
   pet.setFlowers(waiting(3));
-  for (const state of ["walk", "sleep", "stretch", "watch", "pounce", "sit"]) {
+  for (const state of ["walk", "sleep", "stretch", "watch", "pounce", "sit", "getup", "sniff", "chase", "look"]) {
     pet.setState(state, 5000, state === "walk" ? { target: 10 } : {});
     const before = pet.stateStart - 0.4; // a frame time slightly earlier than the state's start
     const { frame } = pet.pose(before);
@@ -190,8 +190,7 @@ test("a click makes an awake fox jump, look around both ways, then carry on", ()
   pet.scrolling();
   assert.strictEqual(pet.state, "look"); // the page scrolling doesn't cut it short
   pet.update(pet.stateEnd + 1, 16);
-  assert.notStrictEqual(pet.state, "look");
-  assert.notStrictEqual(pet.state, "sleep");
+  assert.strictEqual(pet.state, "sit"); // an awake fox sits, it doesn't fall asleep
   assert.strictEqual(pet.interacting, false);
 });
 
@@ -224,4 +223,68 @@ test("with reduce animations on a click does nothing", () => {
   const pet = fox({ reduced: true });
   pet.clicked();
   assert.strictEqual(pet.state, "sit");
+});
+
+test("idle antics: gets up, sniffs the air, chases its tail in three circles, sits down dizzy", () => {
+  const pet = fox({ width: 1200 });
+  pet.setFlowers(waiting(3));
+  pet.x = 600;
+  pet.antics();
+  assert.strictEqual(pet.state, "getup");
+  pet.update(pet.stateEnd + 1, 16);
+  assert.strictEqual(pet.state, "sniff");
+  const frames = new Set([pet.pose(pet.stateStart + 10).frame, pet.pose(pet.stateStart + 300).frame]);
+  assert.strictEqual(frames.size, 2, "the nose should twitch between two heights");
+  pet.update(pet.stateEnd + 1, 16);
+  assert.strictEqual(pet.state, "chase");
+  const start = pet.stateStart;
+  const span = pet.stateEnd - start;
+  const xs = [];
+  const faces = new Set();
+  for (let part = 0; part < 1; part += 0.02) {
+    pet.update(start + span * part, 16);
+    xs.push(pet.x);
+    faces.add(pet.facingLeft);
+  }
+  assert.ok(Math.max(...xs) - Math.min(...xs) <= 2 * 10 * 3 + 1, "the circle stays small");
+  assert.ok(Math.min(...xs) >= 0 && Math.max(...xs) <= 1200 - 96, "the fox stays inside the strip");
+  assert.strictEqual(faces.size, 2, "it turns round at each end of the circle");
+  const realNow = performance.now.bind(performance);
+  performance.now = () => pet.stateEnd + 1; // the popup is timed by the same clock as the update
+  try {
+    pet.update(pet.stateEnd + 1, 16);
+  } finally {
+    performance.now = realNow;
+  }
+  assert.strictEqual(pet.state, "sit");
+  assert.strictEqual(pet.popups.at(-1).text, "@");
+  assert.ok(Math.abs(pet.x - 600) < 1, "it ends up where it started");
+});
+
+test("antics happen from time to time when idle, but never in the panel or with reduce animations on", () => {
+  const roll = (options, value) => {
+    const pet = fox(options);
+    pet.setFlowers(waiting(3));
+    const random = Math.random;
+    Math.random = () => value;
+    try {
+      pet.nextIdle();
+    } finally {
+      Math.random = random;
+    }
+    return pet.state;
+  };
+  // 0.2 is past the nap chance (0.18 by day) and inside the antics band that follows the "sit" band
+  const day = new Date().getHours();
+  if (day >= 6 && day < 22) assert.strictEqual(roll({}, 0.18 + 0.3 + 0.05), "getup");
+  assert.notStrictEqual(roll({ panel: true }, 0.18 + 0.3 + 0.05), "getup");
+  assert.strictEqual(roll({ reduced: true }, 0.18 + 0.3 + 0.05), "sit");
+});
+
+test("a click during the antics still works", () => {
+  const pet = fox();
+  pet.setFlowers(waiting(3));
+  pet.antics();
+  pet.clicked();
+  assert.strictEqual(pet.state, "pounce");
 });
