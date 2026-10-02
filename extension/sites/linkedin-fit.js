@@ -8,6 +8,10 @@
     "sr", "jr", "senior", "junior", "lead", "level", "entry", "associate", "remote", "hybrid", "contract",
     "temporary", "temp", "part", "time", "full"]);
 
+  // Job words that fit almost any field, so matching only them says nothing.
+  const GENERIC_ROLES = new Set(["specialist", "coordinator", "manager", "associate", "assistant", "analyst", "administrator",
+    "editor", "director", "officer", "representative", "consultant", "generalist", "executive", "intern", "engineer"]);
+
   function words(text) {
     return String(text || "").toLowerCase()
       .replace(/front[\s-]?end/g, "frontend").replace(/\bwebsite\b/g, "web").replace(/\bux\s*\/\s*ui\b|\bui\s*\/\s*ux\b/g, "ux ui")
@@ -31,7 +35,17 @@
       if (!mine.length) continue;
       const found = mine.filter((word) => job.some((other) => sameWord(word, other))).length;
       if (found === mine.length) return { level: "good", title };
-      if (mine.length >= 2 && found * 2 >= mine.length && !best.level) best = { level: "maybe", title };
+      // "Maybe" (titles of two or more words): the job word (the last one) plus at least half the words, so
+      // "Web Content Specialist" is not a "content designer" for sharing only "content". When the job word is a common
+      // one ("specialist", "manager" ...) it proves nothing, so every descriptive word must match instead:
+      // "Digital Production Manager" is a maybe for "production specialist", "Marketing Specialist" is not.
+      const role = mine[mine.length - 1];
+      const qualifiers = mine.slice(0, -1);
+      const qualifierHits = qualifiers.filter((word) => job.some((other) => sameWord(word, other))).length;
+      const maybe = mine.length >= 2 && (GENERIC_ROLES.has(role)
+        ? qualifierHits === qualifiers.length
+        : found * 2 >= mine.length && job.some((other) => sameWord(role, other)));
+      if (maybe && !best.level) best = { level: "maybe", title };
     }
     return best;
   }
