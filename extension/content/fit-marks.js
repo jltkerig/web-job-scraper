@@ -43,6 +43,13 @@
   }
 
   const retryAt = new Map(); // place -> time before which it isn't asked about again after a failure
+  // A remote job has no commute: tagged "Remote" and listed first. Otherwise Job Finder's estimate for the town.
+  const REMOTE = { minutes: 0, text: "Remote · no commute" };
+  function distanceOf(job) {
+    if (job.work_arrangement === "Remote" || /^united states \(remote\)$/i.test(job.location)) return REMOTE;
+    return distances.get(job.location);
+  }
+
   async function loadDistances(cards) {
     const now = Date.now();
     const places = [...new Set(cards.map(({ job }) => job.location)
@@ -60,7 +67,7 @@
 
   function markDistances(cards) {
     for (const { element, job } of cards) {
-      const found = distances.get(job.location);
+      const found = distanceOf(job);
       const old = element.querySelector(":scope > wjs-fit-tag[data-distance]");
       if (!found) { old?.remove(); continue; }
       if (old && old.dataset.label === found.text) continue;
@@ -88,7 +95,7 @@
     if (new Set(slots).size !== slots.length) return; // cards share a slot: leave the page alone
     const place = new Map(Array.from(list.children, (child, index) => [child, index]));
     const free = slots.map((slot) => place.get(slot)).sort((a, b) => a - b);
-    const minutes = (card) => { const found = distances.get(card.job.location); return found ? found.minutes : 1e9; };
+    const minutes = (card) => { const found = distanceOf(card.job); return found ? found.minutes : 1e9; };
     const ranked = cards.map((card, i) => ({ slot: slots[i], at: place.get(slots[i]), minutes: minutes(card) }))
       .sort((a, b) => a.minutes - b.minutes || a.at - b.at);
     if (!ranked.some((item) => item.minutes < 1e9)) return; // no distances known: nothing to sort by

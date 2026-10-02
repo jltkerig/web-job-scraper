@@ -92,7 +92,7 @@ test("a company's own jobs page counts as a jobs page, so its jobs are captured"
   assert.strictEqual(jobs[0].company, "Flywheel");
 });
 
-test("Indeed and USAJOBS are sample-only: no jobs read, no scanning, the page can still be saved", () => {
+test("Indeed and USAJOBS are sample-only: no jobs are read, pages report in so samples can be kept", () => {
   const fs = require("node:fs");
   const manifest = JSON.parse(fs.readFileSync(require.resolve("../extension/manifest.json"), "utf8"));
   const entry = manifest.content_scripts.find((item) => item.matches.some((m) => m.includes("indeed.com")));
@@ -101,7 +101,8 @@ test("Indeed and USAJOBS are sample-only: no jobs read, no scanning, the page ca
   assert.ok(manifest.background.scripts.indexOf("sites/sample-only.js") < manifest.background.scripts.indexOf("background.js"));
   require("../extension/sites/sample-only.js");
   const sample = globalThis.SampleParse;
-  assert.strictEqual(sample.onJobsPage(new URL("https://www.indeed.com/jobs?q=web")), false);
+  assert.strictEqual(sample.onJobsPage(new URL("https://www.indeed.com/jobs?q=web")), true); // every page reports in, so a sample can be kept
+  assert.strictEqual(sample.expectsJobs("https://www.indeed.com/jobs?q=web"), false);
   assert.deepStrictEqual(sample.fromDom({}, "https://www.indeed.com/"), []);
 });
 
@@ -174,5 +175,54 @@ test("when distances can't be read, the same places aren't asked again every sec
   window.document.body.appendChild(window.document.createElement("div")); // the page changes: another look
   await new Promise((resolve) => setTimeout(resolve, 900));
   assert.strictEqual(calls, 1);
+  window.close();
+});
+
+// Shaped like the real 2026 search page saved from LinkedIn: a "lazy column" of blocks with spacers between, each
+// card a clickable block tagged job-card-component-ref-<id> with no link inside, led by an accessible repeat of the title.
+const REAL = `<!doctype html><html><body><main><div data-testid="lazy-column" id="column">
+  <div><p>Jobs based on your preferences</p><p>99+ results</p></div>
+  <div data-display-contents="true"><div><div data-display-contents="true"><div role="button" tabindex="0" componentkey="job-card-component-ref-4466104575">
+    <div componentkey="job-card-component-ref-4466104575"><p>Graphic Designer (Verified job)</p><p>Graphic Designer</p><p>GemHarvest Executive Recruiting</p><p>Baltimore, MD (On-site)</p><p>$90K/yr - $110K/yr</p></div></div></div></div></div>
+  <div></div>
+  <div data-display-contents="true"><div><div data-display-contents="true"><div role="button" tabindex="0" componentkey="job-card-component-ref-4460751737">
+    <div componentkey="job-card-component-ref-4460751737"><p>Selected, Graphic Designer</p><p>Graphic Designer</p><p>Kidde Global Solutions</p><p>United States (Remote)</p><p>401(k)</p></div></div></div></div></div>
+  <div></div>
+  <div data-display-contents="true"><div><div data-display-contents="true"><div role="button" tabindex="0" componentkey="job-card-component-ref-4472661323">
+    <div componentkey="job-card-component-ref-4472661323"><p>Creative Content Specialist</p><p>Creative Content Specialist</p><p>City of Lancaster</p><p>Lancaster, PA</p></div></div></div></div></div>
+  <div></div>
+  <a href="https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737"><p>Vichet Horn</p><p>• 3rd+</p></a>
+</div></main></body></html>`;
+
+test("LinkedIn's 2026 cards (no links inside) are read: titles, companies, towns, remote, and no person mistaken for a job", () => {
+  const parse = globalThis.LinkedInParse;
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const found = parse.cards(new JSDOM(REAL, { url }).window.document, url).map(({ job }) => job);
+  assert.deepStrictEqual(found.map((job) => job.job_id), ["4466104575", "4460751737", "4472661323"]);
+  assert.deepStrictEqual(found.map((job) => job.title), ["Graphic Designer", "Graphic Designer", "Creative Content Specialist"]);
+  assert.deepStrictEqual(found.map((job) => job.company), ["GemHarvest Executive Recruiting", "Kidde Global Solutions", "City of Lancaster"]);
+  assert.deepStrictEqual(found.map((job) => job.location), ["Baltimore, MD (On-site)", "United States (Remote)", "Lancaster, PA"]);
+  assert.deepStrictEqual(found.map((job) => job.work_arrangement), ["On-site", "Remote", ""]);
+  assert.strictEqual(found[0].salary, "$90K/yr - $110K/yr");
+});
+
+test("on the 2026 layout: Fit tags, 'Remote' first then nearest, unknown last, remote tagged", async () => {
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
+  window.browser = { runtime: { sendMessage: async () => ({ places: { "Baltimore, MD (On-site)": { minutes: 45, text: "21 mi · ~45 min" },
+      "Lancaster, PA": { minutes: 75, text: "39 mi · ~75 min" } } }) },
+    storage: { local: { get: async () => ({ fitProfile: { titles: ["Graphic Designer"], skills: [], work_preferences: [] }, sortByDistance: true }),
+      }, onChanged: { addListener() {} } } };
+  window.LinkedInParse = globalThis.LinkedInParse;
+  window.LinkedInFit = globalThis.LinkedInFit;
+  window.eval(require("node:fs").readFileSync(require.resolve("../extension/content/fit-marks.js"), "utf8"));
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  const slots = Array.from(window.document.querySelectorAll("#column > div")).filter((d) => d.querySelector("[componentkey]"));
+  const order = slots.map((slot) => [slot.querySelector("[componentkey]").getAttribute("componentkey").slice(-4), Number(slot.style.order)])
+    .sort((a, b) => a[1] - b[1]).map(([id]) => id);
+  assert.deepStrictEqual(order, ["1737", "4575", "1323"]); // remote, then 45 min, then 75 min
+  const labels = Array.from(window.document.querySelectorAll("wjs-fit-tag[data-distance]"), (tag) => tag.dataset.label).sort();
+  assert.deepStrictEqual(labels, ["21 mi · ~45 min", "39 mi · ~75 min", "Remote · no commute"]);
+  assert.strictEqual(window.document.querySelectorAll("[data-wjs-fit]").length, 2); // both Graphic Designer cards fit
   window.close();
 });

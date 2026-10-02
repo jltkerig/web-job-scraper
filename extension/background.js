@@ -364,12 +364,42 @@ function updateBadge() {
   browser.browserAction.setTitle({ title: `Job Scraper: ${fresh} new job${fresh === 1 ? "" : "s"}${since}` });
 }
 
+// Saves a copy of the open page for fixing, without asking (turn it off in the panel). At most one copy per site and kind
+// of page a day (the first part of the address: /jobs, /viewjob, /search ...), and 12 a day in all, so the downloads
+// folder doesn't fill up. Used when LinkedIn capture finds nothing, and on Indeed and USAJOBS (sample-only sites).
+async function autoSample(site, tabId, pageUrl) {
+  if (state.settings.autoSample === false || tabId === undefined || !SITES[site]) return;
+  const today = localDay();
+  let kind = "page";
+  try {
+    kind = new URL(pageUrl).pathname.split("/").filter(Boolean)[0] || "home";
+  } catch (error) {
+    // keep the generic kind
+  }
+  const key = `sample:${site}:${kind}`;
+  const doneToday = Object.entries(state.autoSavedDay).filter(([name, day]) => name.startsWith("sample:") && day === today).length;
+  if (state.autoSavedDay[key] === today || doneToday >= 12) return;
+  try {
+    await saveDebug(site, tabId);
+    state.autoSavedDay[key] = today;
+    persistSoon();
+  } catch (error) {
+    // Not saved this time; the next page of that kind tries again.
+  }
+}
+
 async function pageSettled(site, message, tabId) {
+  if (site === "sample") { // Indeed and USAJOBS: nothing is read there yet, only sample pages are kept
+    const real = siteForUrl(message.pageUrl);
+    if (real) await autoSample(real, tabId, message.pageUrl);
+    return;
+  }
   if (!message.expectsJobs || !state.settings.enabled[site]) return;
   if (message.found === 0 && (tabCounts.get(tabId) || 0) === 0) {
     state.broken[site] = { url: message.pageUrl, since: new Date().toISOString() };
     persistSoon();
     updateBadge();
+    await autoSample(site, tabId, message.pageUrl);
     return;
   }
   // A job is open (its own page or the details pane): its full details should have been read by now.
@@ -425,6 +455,7 @@ function popupState() {
     ...petState(),
     runs: runsForPopup(),
     runAlert: state.runAlert,
+    autoSample: state.settings.autoSample !== false,
   };
 }
 
@@ -495,7 +526,12 @@ browser.runtime.onMessage.addListener((message, sender) => {
         if (tabId !== undefined) tabSites.set(tabId, message.site);
         addJobs(message.site, message.jobs || [], tabId);
         return true;
+      case "set-auto-sample":
+        state.settings.autoSample = Boolean(message.enabled);
+        await persist();
+        return popupState();
       case "page-view":
+        if (message.site === "sample") return true; // nothing is captured on Indeed or USAJOBS yet
         if (tabId !== undefined) {
           tabSites.set(tabId, message.site);
           tabCounts.set(tabId, 0);

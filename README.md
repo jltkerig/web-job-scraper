@@ -48,6 +48,10 @@ The extension reads your titles, skills and work preferences from Job Finder on 
 
 The extension is also loaded on Indeed and USAJOBS, but it does not read their jobs yet: each site's page layout has to be seen first. Open a search results page or a job page there, click **Save this page for fixing** in the panel, and the page is saved to `web-job-scraper\debug\` in your downloads folder. A reader can then be written from those files. Until then nothing from these sites is captured, and they don't appear in the panel's site list.
 
+## Page samples (saved automatically)
+
+So the extension can be fixed without you saving pages by hand, it saves a copy of the open page to `web-job-scraper\debug\` in your downloads folder when LinkedIn capture finds nothing, and for each new kind of page you visit on Indeed or USAJOBS. At most one copy per kind of page a day, 12 a day in all. The copy is the page as you saw it. Turn this off with **Save a sample page automatically** in the panel.
+
 ## The toolbar panel
 
 - **LinkedIn — On / Maryland Workforce Exchange — On:** turns capture on or off for each site.

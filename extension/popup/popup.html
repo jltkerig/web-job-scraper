@@ -27,6 +27,11 @@
       <p id="fit-status" class="hint"></p>
       <label><input id="sort-distance" type="checkbox"> List LinkedIn jobs nearest first (each card also shows its distance and 6 a.m. drive time)</label>
     </section>
+    <section class="auto-sample">
+      <h2>Page samples</h2>
+      <label><input id="auto-sample" type="checkbox"> Save a sample page automatically when capture finds nothing, and for new kinds of page on Indeed and USAJOBS</label>
+      <p class="hint">Copies go to <code>web-job-scraper\debug</code> in your downloads folder: at most one per kind of page a day, 12 a day. They contain the page as you saw it. Used only to fix the extension.</p>
+    </section>
     <section class="runs">
       <h2>Scheduled LinkedIn runs</h2>
       <p class="hint">At the time you pick, Firefox opens LinkedIn's recommended jobs in a background tab, collects them, opens up to 10 new ones for details, then closes the tab. Firefox must be open.</p>

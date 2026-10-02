@@ -273,6 +273,27 @@
   // Each card as { element, job }: element is the box the card's text came from (used to mark good fits).
   function cards(doc, pageUrl) {
     const found = new Map();
+    // The 2026 search pages: each card is a clickable block tagged job-card-component-ref-<job id> and holds no link.
+    // Its lines: an accessible title ("Selected, Graphic Designer" / "... (Verified job)"), the title, company,
+    // "Baltimore, MD (On-site)", pay and perks. The outermost block with the tag is the card.
+    for (const block of doc.querySelectorAll("[componentkey^='job-card-component-ref-']")) {
+      const id = (block.getAttribute("componentkey").match(/(\d{6,})$/) || [])[1];
+      if (!id || found.has(id)) continue;
+      let card = lines(block);
+      const plain = (line) => cleanTitle(String(line || "").replace(/^selected,\s*/i, "")).toLowerCase();
+      if (card.length > 1 && plain(card[0]) === plain(card[1])) card = card.slice(1); // drop the accessible repeat
+      if (card.length < 2) continue;
+      const job = blank(id);
+      job.title = cleanTitle(card[0]);
+      job.company = card[1];
+      const at = locationIndex(card, 2);
+      job.location = at >= 0 ? card[at] : "";
+      job.salary = card.find((line) => PAY_TEXT.test(line)) || "";
+      job.applied = card.some((line) => APPLIED_LINE.test(line));
+      job.closed = card.some((line) => CLOSED_TEXT.test(line));
+      job.work_arrangement = arrangementFromText(card.find((line) => WORKPLACE_LINE.test(line)) || job.location);
+      found.set(id, { element: block, job });
+    }
     for (const link of doc.querySelectorAll("a[href*='/jobs/view/'], a[href*='currentJobId=']")) {
       const id = idFromUrl(link.getAttribute("href"));
       if (!id || found.has(id)) continue;
