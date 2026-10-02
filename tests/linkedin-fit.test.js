@@ -147,3 +147,32 @@ test("with the panel's checkbox off, distances are shown but nothing is reordere
   assert.ok(Array.from(window.document.querySelectorAll("#list > li")).every((li) => li.style.order === ""));
   window.close();
 });
+
+test("a sentence with a comma is not read as a place (', we' is not a state code)", () => {
+  const parse = globalThis.LinkedInParse;
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4400000031";
+  const html = `<main>
+    <a href="${url}"><p>Web Designer</p><p>Promo Co</p><p>Last week, we challenged what we do. This week, we challenged how we do it.</p></a>
+    <a href="https://www.linkedin.com/jobs/search-results/?currentJobId=4400000032"><p>Web Designer</p><p>Real Co</p><p>Bel Air, MD</p></a>
+  </main>`;
+  const jobs = Object.fromEntries(parse.cards(new JSDOM(html, { url }).window.document, url).map(({ job }) => [job.job_id, job]));
+  assert.strictEqual(jobs["4400000031"].location, "");
+  assert.strictEqual(jobs["4400000032"].location, "Bel Air, MD");
+});
+
+test("when distances can't be read, the same places aren't asked again every second", async () => {
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4400000021";
+  const window = new JSDOM(CARDS, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
+  let calls = 0;
+  window.browser = { runtime: { sendMessage: async () => { calls += 1; return { places: {}, error: "blocked" }; } },
+    storage: { local: { get: async () => ({ fitProfile: { titles: ["Web Designer"], skills: [], work_preferences: [] } }),
+      }, onChanged: { addListener() {} } } };
+  window.LinkedInParse = globalThis.LinkedInParse;
+  window.LinkedInFit = globalThis.LinkedInFit;
+  window.eval(require("node:fs").readFileSync(require.resolve("../extension/content/fit-marks.js"), "utf8"));
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  window.document.body.appendChild(window.document.createElement("div")); // the page changes: another look
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  assert.strictEqual(calls, 1);
+  window.close();
+});

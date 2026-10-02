@@ -199,7 +199,10 @@
 
   // LinkedIn's 2026 pages have scrambled class names and no stable ids, so everything below goes by the page's text:
   // the "About the job" heading, the order of the lines at the top of a job, and the lines inside each job link.
-  const LOCATION_LINE = /,\s*[A-Z]{2}\b|\bremote\b|united states|metropolitan area|\barea\b|^greater\s/i;
+  // "Baltimore, MD" needs a capital-letter state code: "Last week, we challenged ..." is not a place.
+  const LOCATION_LINE = {
+    test: (line) => /,\s*[A-Z]{2}\b/.test(line) || /\bremote\b|united states|metropolitan area|\barea\b|^greater\s/i.test(line),
+  };
   const WORKPLACE_LINE = /^(on-site|onsite|remote|hybrid)$/i;
   const COMPANY_CARD_LINE = /\b[\d,.+-]+[KkMm]?\s+(?:employees|followers)\b/;
   const POSTED_LINE =/^(?:re)?posted\b|^\d+\s+\w+\s+ago$/i;
