@@ -135,3 +135,31 @@ button:hover { border-color: var(--accent); }
 
 .hidden-companies ul { list-style: none; margin: 4px 0; padding: 0; }
 .hidden-companies li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; }
+
+/* Roomier layout: every area sits between divider bars, with space around its heading and text. */
+main { padding: 0 14px 14px; }
+main > section:not(#sites), main > .actions { margin: 0; padding: 16px 0; border-top: 1px solid var(--line); }
+main > #sites { padding: 14px 0 6px; }
+main > .actions { margin-bottom: 0; }
+main > section > h2 { margin: 0 0 10px; font-size: 14px; }
+main > section p { margin: 0 0 10px; }
+main > section p:last-child { margin-bottom: 0; }
+main > section label { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; line-height: 1.45; }
+main > section label input[type="checkbox"] { margin: 2px 0 0; flex: none; }
+.pet-settings label { align-items: center; }
+.pet-settings select { margin-left: auto; }
+.site { padding: 10px 12px; margin-bottom: 10px; }
+.counts { margin-top: 6px; }
+.run-add { margin-top: 10px; }
+#run-list, #needs-list { margin-top: 10px; }
+#run-list li, #needs-list li { padding: 8px 0; }
+#run-list li { border-top: 0; border-bottom: 1px solid var(--line); }
+#run-list li:last-child, #needs-list li:last-child { border-bottom: 0; }
+.hidden-companies ul { margin: 0 0 10px; }
+.hidden-companies li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.hidden-companies li:last-child { border-bottom: 0; }
+.warning { margin-top: 10px; padding: 8px 10px; }
+.actions button { padding: 5px 12px; }
+#message { margin: 0; }
+#message:not(:empty) { padding: 0 0 14px; }
+main > section label + p { margin-top: 10px; }
