@@ -102,3 +102,13 @@ test("a second copy of the script (after an extension update) leaves only one fo
   await new Promise((resolve) => setTimeout(resolve, 1300)); // the older copy checks once a second
   assert.strictEqual(hosts().length, 1, "two foxes on the page");
 });
+
+test("a fox left by an older version of the script (which can't retire itself) is hidden, ours is not", async () => {
+  const { window, host } = await stripPage();
+  const old = window.document.createElement("div");
+  old.style.cssText = "position:fixed;z-index:2147483000;pointer-events:none;left:0;right:0;bottom:0;height:128px;";
+  window.document.documentElement.appendChild(old);
+  assert.strictEqual(window.getComputedStyle(old).display, "none");
+  assert.notStrictEqual(window.getComputedStyle(host).display, "none");
+  assert.strictEqual(window.document.querySelectorAll("#wjs-fox-cleanup").length, 1);
+});
