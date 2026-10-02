@@ -113,7 +113,8 @@
         this.popups.push({ text: "?", x: this.foxCenter(), y: this.groundY() - (S.FOX_SIZE + 3) * this.scale, born: performance.now() });
         this.setState("look", 2700 / this.speed, {
           interacting: true, lookFrom: this.facingLeft,
-          after: asleep ? () => this.setState("sleep", (rand(20000, 60000) * 1.5) / this.speed) : null,
+          after: asleep ? () => this.setState("sleep", (rand(20000, 60000) * 1.5) / this.speed)
+            : () => this.setState("sit", rand(6000, 20000) / this.speed),
         });
       };
       const jump = () => this.setState("pounce", 900 / this.speed, { interacting: true, after: look });
@@ -132,8 +133,27 @@
       const roll = Math.random();
       if (roll < naps) return this.setState("sleep", hold * 1.5);
       if (this.panel || roll < naps + 0.3) return this.setState("sit", hold);
+      if (roll < naps + 0.3 + 0.15) return this.antics();
       const span = this.width - S.FOX_SIZE * this.scale;
       return this.setState("walk", Infinity, { target: rand(0, span), after: () => this.setState("sit", rand(6000, 20000) / this.speed) });
+    }
+
+    // Now and then, while idle: the fox gets up, sniffs the air, chases its tail in a few small circles, and sits
+    // back down a little dizzy. Not in the panel.
+    antics() {
+      const ms = (n) => n / this.speed;
+      const dizzy = () => {
+        this.popups.push({ text: "@", x: this.foxCenter(), y: this.groundY() - (S.FOX_SIZE + 3) * this.scale, born: performance.now() });
+        this.setState("sit", ms(2500));
+      };
+      const chase = () => {
+        const room = Math.max(0, this.width - S.FOX_SIZE * this.scale);
+        this.chaseR = Math.min(10 * this.scale, room / 2);
+        this.chaseX0 = Math.min(Math.max(this.x, this.chaseR), room - this.chaseR);
+        this.setState("chase", ms(4200), { after: () => { this.x = this.chaseX0; dizzy(); } });
+      };
+      const sniff = () => this.setState("sniff", ms(2600), { after: chase });
+      return this.setState("getup", ms(700), { after: sniff });
     }
 
     update(now, dt) {
@@ -156,6 +176,12 @@
         } else {
           this.x += Math.sign(gap) * step;
         }
+      }
+      if (this.state === "chase") {
+        // Three circles seen from the side: it runs right, turns, runs left, turns, and so on.
+        const angle = ((now - this.stateStart) / (1400 / this.speed)) * Math.PI * 2;
+        this.x = this.chaseX0 + Math.sin(angle) * this.chaseR;
+        this.facingLeft = Math.cos(angle) < 0;
       }
       if (this.state === "look") {
         // Looking around: one way, the other way, then back the way it started.
@@ -248,6 +274,12 @@
           return { frame: S.FOX.walk[Math.floor(t / (150 / this.speed)) % 4] };
         case "sleep":
           return { frame: S.FOX.sleep[Math.floor(t / 900) % 2] };
+        case "getup":
+          return { frame: S.FOX.stand };
+        case "sniff":
+          return { frame: S.FOX.sniff[Math.floor(t / (260 / this.speed)) % 2] };
+        case "chase":
+          return { frame: S.FOX.run[Math.floor(t / (110 / this.speed)) % 4] };
         case "stretch":
           return { frame: S.FOX.crouch };
         case "watch":
