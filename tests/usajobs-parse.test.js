@@ -49,7 +49,7 @@ test("a page with no results gives no jobs", () => {
   assert.deepStrictEqual(read("<main><h1>Search results</h1><h2>No jobs found</h2></main>"), []);
 });
 
-test("a job page is read by its number and heading", () => {
+test("a bare job page is read by its number and heading", () => {
   const url = "https://www.usajobs.gov/job/880142800";
   const jobs = read("<main><h1>Graphics Designer</h1><p>Duties of the job.</p></main>", url);
   assert.strictEqual(jobs.length, 1);
@@ -69,4 +69,41 @@ test("only search and job pages count as jobs pages", () => {
 test("state names become codes, other places are left alone", () => {
   assert.strictEqual(parse.place("Stuttgart, Germany"), "Stuttgart, Germany");
   assert.strictEqual(parse.place("Adams County, Pennsylvania"), "Adams County, PA");
+});
+
+test("a job page is read from its banner, Overview box and sections", () => {
+  const url = "https://www.usajobs.gov/job/885547900";
+  const [job] = read(`<main><div class="joa-header"><h1 class="usajobs-joa-banner__title">Teacher (Digital Media Communications)</h1>
+    <div class="usajobs-joa-banner__dept">Department of Defense</div><div class="usajobs-joa-banner__agency">Department of War Education Activity</div></div>
+    <div id="joa-summary"><h2>Summary</h2><p>About the Position: a ${"long summary ".repeat(15)}</p></div>
+    <div id="joa-duties"><h2>Duties</h2><p>Develop and deliver a curriculum.</p></div>
+    <div id="joa-requirements"><h2>Requirements</h2><p>Must hold a license.</p></div>
+    <div><h2>Overview</h2><span>Accepting applications</span><span>Open 09/24/2026 to 10/06/2099</span>
+      <span>Location</span><span>1 vacancy in the following location:</span><span>Stuttgart, Germany</span>
+      <span>Telework eligible</span><span>No</span><span>Remote job</span><span>Yes</span>
+      <span>Salary</span><span>$57,675 - $114,825 per year</span></div></main>`, url);
+  assert.strictEqual(job.title, "Teacher (Digital Media Communications)");
+  assert.strictEqual(job.company, "Department of War Education Activity");
+  assert.strictEqual(job.location, "Stuttgart, Germany");
+  assert.strictEqual(job.salary, "$57,675 - $114,825/year");
+  assert.strictEqual(job.posted, "2026-09-24");
+  assert.strictEqual(job.work_arrangement, "Remote");
+  assert.strictEqual(job.closed, false);
+  assert.strictEqual(job.level, "opened");
+  assert.match(job.description, /Develop and deliver a curriculum/);
+});
+
+test("a page saved for fixing has no scripts and nothing typed into a field", () => {
+  const { JSDOM: Dom } = require("jsdom");
+  const dom = new Dom(`<html><body><main><h1>Jobs</h1><input name="q" value="my secret search"><textarea>private note</textarea>
+    <script>window.me = "Jamie"</script></main></body></html>`, { url: SEARCH, runScripts: "outside-only" });
+  dom.window.browser = { runtime: { onMessage: { addListener: (fn) => { dom.window.listener = fn; } }, sendMessage: async () => {} } };
+  dom.window.UsajobsParse = parse;
+  dom.window.CaptureParse = parse;
+  dom.window.eval(require("fs").readFileSync(require.resolve("../extension/content/capture.js"), "utf8"));
+  return dom.window.listener({ type: "get-page-html" }).then(({ html }) => {
+    assert.doesNotMatch(html, /my secret search|private note|window\.me/);
+    assert.match(html, /<h1>Jobs<\/h1>/);
+    dom.window.close();
+  });
 });

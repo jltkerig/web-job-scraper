@@ -217,3 +217,9 @@ These are carried over from the original plan.
 - Should filters such as minimum pay be added?
 - Should extra fields be captured (easy-apply, applicant count)?
 - Should Firefox open automatically at startup?
+
+## Privacy
+
+- Everything stays on your computer. The extension only talks to Job Finder at `127.0.0.1:5000` (which now refuses any request addressed to another name) and to this project's GitHub Pages site for update checks.
+- Job files and "page samples" are saved in plain text in your downloads folder (`web-job-scraper\`). Samples are made without scripts and without anything typed into a field, but they are still pages you were signed in on, so they can hold your name. They are only made on job search and job pages, never on account, profile, resume or message pages. Delete the `debug` folder when you no longer need it, and turn off "Page samples" in the panel to stop them.
+- A LinkedIn sample also saves LinkedIn's background job data (`responses.json`), which can include your own account details. These are only saved when capture finds nothing or when you press the panel's save button.
