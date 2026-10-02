@@ -607,8 +607,11 @@ async function distancesFor(places) {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       for (const place of missing) distanceCache.set(place, (data.places || {})[place] || null);
+      browser.storage.local.set({ distanceError: "" }).catch(() => {});
     } catch (error) {
-      return { places: {}, error: "Job Finder isn't running." }; // not remembered, so it is asked again next time
+      // Not remembered, so it is asked again later; the panel says what went wrong.
+      browser.storage.local.set({ distanceError: `Distances couldn't be read from Job Finder (${error.message || error}).` }).catch(() => {});
+      return { places: {}, error: String(error.message || error) };
     }
   }
   return { places: Object.fromEntries(wanted.map((place) => [place, distanceCache.get(place)])) };

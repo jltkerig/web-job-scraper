@@ -42,13 +42,20 @@
     return host;
   }
 
+  const retryAt = new Map(); // place -> time before which it isn't asked about again after a failure
   async function loadDistances(cards) {
-    const places = [...new Set(cards.map(({ job }) => job.location).filter((place) => place && !distances.has(place)))];
+    const now = Date.now();
+    const places = [...new Set(cards.map(({ job }) => job.location)
+      .filter((place) => place && !distances.has(place) && (retryAt.get(place) || 0) <= now))];
     if (!places.length) return;
+    let reply = null;
     try {
-      const reply = await browser.runtime.sendMessage({ type: "distances", places });
-      for (const place of places) if (reply && reply.places && place in reply.places) distances.set(place, reply.places[place]);
-    } catch (error) { /* Job Finder isn't running: no distances this time */ }
+      reply = await browser.runtime.sendMessage({ type: "distances", places });
+    } catch (error) { /* the background script didn't answer */ }
+    for (const place of places) {
+      if (reply && reply.places && place in reply.places) distances.set(place, reply.places[place]);
+      else retryAt.set(place, now + 2 * 60 * 1000); // failed: wait two minutes, not a second
+    }
   }
 
   function markDistances(cards) {
