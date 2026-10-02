@@ -236,7 +236,7 @@ send({ type: "popup-state" }).then((result) => {
 });
 
 // Fit markers: whether the extension has your Job Finder profile, and how fresh it is.
-browser.storage.local.get(["fitProfile", "fitProfileAt", "fitProfileError"]).then((saved) => {
+browser.storage.local.get(["fitProfile", "fitProfileAt", "fitProfileError", "distanceError"]).then((saved) => {
   const status = document.getElementById("fit-status");
   const titles = (saved.fitProfile && saved.fitProfile.titles) || [];
   if (!saved.fitProfile) {
@@ -247,7 +247,7 @@ browser.storage.local.get(["fitProfile", "fitProfileAt", "fitProfileError"]).the
     const when = saved.fitProfileAt ? new Date(saved.fitProfileAt).toLocaleString() : "earlier";
     status.textContent = `Using ${titles.length} title${titles.length === 1 ? "" : "s"} and ` +
       `${(saved.fitProfile.skills || []).length} skills from Job Finder (updated ${when}).` +
-      (saved.fitProfileError ? ` ${saved.fitProfileError}` : "");
+      (saved.fitProfileError ? ` ${saved.fitProfileError}` : "") + (saved.distanceError ? ` ${saved.distanceError}` : "");
   }
 }).catch(() => {});
 
