@@ -264,3 +264,26 @@ send({ type: "popup-state" }).then((result) => {
   box.checked = result.autoSample !== false;
   box.addEventListener("change", () => send({ type: "set-auto-sample", enabled: box.checked }));
 });
+
+// Hidden companies: the list from the X on LinkedIn cards, each with Unhide.
+function showHiddenCompanies() {
+  browser.storage.local.get("hiddenCompanies").then((saved) => {
+    const names = saved.hiddenCompanies || [];
+    const list = document.getElementById("hidden-list");
+    list.replaceChildren(...names.map((name) => {
+      const item = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent = name;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Unhide";
+      button.addEventListener("click", () => {
+        browser.storage.local.set({ hiddenCompanies: names.filter((other) => other !== name) }).then(showHiddenCompanies);
+      });
+      item.append(label, " ", button);
+      return item;
+    }));
+    document.getElementById("hidden-empty").hidden = names.length > 0;
+  }).catch(() => {});
+}
+showHiddenCompanies();
