@@ -93,3 +93,12 @@ test("a page opened while minimized starts as the badge", async () => {
   assert.match(host.style.cssText, /width: 48px/);
   assert.strictEqual(root.querySelector(".badge").hidden, false);
 });
+
+test("a second copy of the script (after an extension update) leaves only one fox on the page", async () => {
+  const { window } = await stripPage();
+  const hosts = () => [...window.document.documentElement.children].filter((node) => node.shadowRoot);
+  assert.strictEqual(hosts().length, 1);
+  window.eval(read("content/pet-strip.js")); // the page kept the old copy running, and the new one starts beside it
+  await new Promise((resolve) => setTimeout(resolve, 1300)); // the older copy checks once a second
+  assert.strictEqual(hosts().length, 1, "two foxes on the page");
+});
