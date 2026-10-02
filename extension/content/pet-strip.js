@@ -79,9 +79,21 @@
     return node;
   }
 
+  // Copies of this script from older versions can't be told to stand down (they know nothing about the token), so
+  // their foxes are hidden instead: they're the other fox-sized strips fixed to <html> at this z-index.
+  function hideOtherFoxes() {
+    if (document.getElementById("wjs-fox-cleanup")) return;
+    const style = document.createElement("style");
+    style.id = "wjs-fox-cleanup";
+    style.textContent = 'html > div[style*="2147483000"]:not([data-wjs-fox-host]) { display: none !important; }';
+    document.documentElement.appendChild(style);
+  }
+
   function build() {
     document.documentElement.setAttribute(OWNER, TOKEN);
+    hideOtherFoxes();
     host = document.createElement("div");
+    host.setAttribute("data-wjs-fox-host", "");
     const shadow = host.attachShadow({ mode: "closed" });
     const style = document.createElement("style");
     style.textContent = `
