@@ -311,17 +311,28 @@
     if (!text) { notice?.remove(); notice = null; return; }
     if (!notice) {
       notice = document.createElement("wjs-fit-tag");
-      notice.style.cssText = "position: fixed; left: 12px; bottom: 12px; top: auto; right: auto; z-index: 2147483000; pointer-events: auto;";
+      notice.style.cssText = "position: fixed; left: 12px; bottom: 12px; top: auto; right: auto; z-index: 2147483001; pointer-events: auto;";
       const shadow = notice.attachShadow({ mode: "open" });
       const box = document.createElement("div");
       box.style.cssText = "font: 600 12px/1.4 system-ui, sans-serif; color: #fff; background: #374151; border-radius: 8px; " +
         "padding: 8px 12px; max-width: 320px; box-shadow: 0 2px 8px rgba(0,0,0,.3);";
       shadow.appendChild(box);
-      (document.body || document.documentElement).appendChild(notice);
+      document.documentElement.appendChild(notice);
     }
     notice.shadowRoot.firstChild.textContent = text;
+    liftAboveFox();
+  }
+  // The fox's garden is a strip along the whole bottom of the page (a small round badge when it is minimized, at the
+  // right). While the strip is showing, the notice sits above it instead of behind it.
+  function liftAboveFox() {
+    if (!notice) return;
+    const fox = document.querySelector("[data-wjs-fox-host]");
+    const box = fox && fox.getBoundingClientRect();
+    const strip = box && box.width > 120 && box.height > 0;
+    notice.style.setProperty("bottom", `${strip ? Math.round(box.height) + 12 : 12}px`, "important");
   }
   async function checkProfile() {
+    liftAboveFox();
     if (profile && (profile.titles || []).length) { showNotice(""); return; }
     if (!parse.onJobsPage(location)) return;
     showNotice(problem);
@@ -359,4 +370,5 @@
     schedule();
   });
   new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+  setInterval(liftAboveFox, 1500); // the fox can be opened or minimized at any time
 })();
