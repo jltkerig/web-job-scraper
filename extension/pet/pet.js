@@ -66,7 +66,7 @@
       const room = Math.max(0, Math.floor((this.width - S.FOX_SIZE * this.scale - 16) / gap));
       this.flowers = jobs.slice(0, Math.min(room, MAX_FLOWERS)).reverse()
         .map((job, i) => ({ job, ...flowerLook(job), x: 8 + i * gap }));
-      if (!this.flowers.length && !["sleep", "stretch", "pounce"].includes(this.state)) this.nextIdle();
+      if (!this.flowers.length && !["sleep", "stretch", "pounce", "look"].includes(this.state)) this.nextIdle();
     }
 
     // The strip follows the window's width.
@@ -82,7 +82,7 @@
       this.state = name;
       this.stateStart = performance.now();
       this.stateEnd = this.stateStart + duration;
-      Object.assign(this, { target: null, after: null }, extra);
+      Object.assign(this, { target: null, after: null, interacting: false }, extra);
     }
 
     // ---------- events from the page and the extension ----------
@@ -99,14 +99,26 @@
     }
 
     scrolling() {
-      if (this.reduced || this.state === "sleep" || this.state === "pounce" || this.state === "stretch") return;
+      if (this.reduced || ["sleep", "pounce", "stretch", "look"].includes(this.state)) return;
       if (this.state !== "watch") this.setState("watch", 1600);
       else this.stateEnd = performance.now() + 1600; // stays watching while the list keeps moving
     }
 
+    // A click: the fox jumps, looks around (left, right, then back), and carries on. If it was asleep it stretches
+    // first and goes back to sleep afterwards. Clicks during the routine are ignored, so it always plays through.
     clicked() {
-      if (this.state === "sleep") this.setState("stretch", 700 / this.speed, { after: () => this.setState("sit", 5000) });
-      else if (!this.reduced) this.setState("pounce", 700 / this.speed);
+      if (this.reduced || this.interacting) return;
+      const asleep = this.state === "sleep";
+      const look = () => {
+        this.popups.push({ text: "?", x: this.foxCenter(), y: this.groundY() - (S.FOX_SIZE + 3) * this.scale, born: performance.now() });
+        this.setState("look", 2700 / this.speed, {
+          interacting: true, lookFrom: this.facingLeft,
+          after: asleep ? () => this.setState("sleep", (rand(20000, 60000) * 1.5) / this.speed) : null,
+        });
+      };
+      const jump = () => this.setState("pounce", 900 / this.speed, { interacting: true, after: look });
+      if (asleep) this.setState("stretch", 700 / this.speed, { interacting: true, after: jump });
+      else jump();
     }
 
     // ---------- idle life ----------
@@ -144,6 +156,12 @@
         } else {
           this.x += Math.sign(gap) * step;
         }
+      }
+      if (this.state === "look") {
+        // Looking around: one way, the other way, then back the way it started.
+        const third = (this.stateEnd - this.stateStart) / 3;
+        const turned = Math.floor((now - this.stateStart) / third) === 1;
+        this.facingLeft = turned ? !this.lookFrom : this.lookFrom;
       }
       if (now >= this.blinkAt + 160) this.blinkAt = now + rand(2500, 6000);
       this.popups = this.popups.filter((popup) => now - popup.born < 1400);
@@ -233,6 +251,7 @@
         case "stretch":
           return { frame: S.FOX.crouch };
         case "watch":
+        case "look":
           return { frame: blinking ? S.FOX.sitBlink : S.FOX.alert };
         case "pounce": {
           const part = t / (this.stateEnd - this.stateStart);
