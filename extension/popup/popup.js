@@ -257,3 +257,10 @@ browser.storage.local.get("sortByDistance").then((saved) => {
   box.checked = saved.sortByDistance !== false;
   box.addEventListener("change", () => browser.storage.local.set({ sortByDistance: box.checked }));
 }).catch(() => {});
+
+// Automatic page samples (on by default).
+send({ type: "popup-state" }).then((result) => {
+  const box = document.getElementById("auto-sample");
+  box.checked = result.autoSample !== false;
+  box.addEventListener("change", () => send({ type: "set-auto-sample", enabled: box.checked }));
+});
