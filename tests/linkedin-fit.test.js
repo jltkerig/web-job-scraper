@@ -378,3 +378,32 @@ test("the profile notice sits above the fox's strip instead of behind it, and dr
   assert.strictEqual(notice.style.getPropertyValue("bottom"), "12px");
   window.close();
 });
+
+test("the notice asks again by itself and goes away once Job Finder answers", async () => {
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
+  const stored = {};
+  let up = false, asks = 0;
+  window.browser = { runtime: { sendMessage: async (message) => {
+      if (message.type !== "fit-profile-now") return { places: {} };
+      asks += 1;
+      if (!up) return { titles: 0, error: "Job Finder isn't answering." };
+      stored.fitProfile = { titles: ["Graphic Designer"], skills: [], work_preferences: [], blocked_companies: [] };
+      return { titles: 1, error: "" };
+    } },
+    storage: { local: { get: async () => stored, set: async () => {} }, onChanged: { addListener: () => {} } } };
+  window.LinkedInParse = globalThis.LinkedInParse;
+  window.LinkedInFit = globalThis.LinkedInFit;
+  const real = window.Date.now;
+  let offset = 0;
+  window.Date.now = () => real() + offset; // lets the test skip the 30-second wait
+  window.eval(require("node:fs").readFileSync(require.resolve("../extension/content/fit-marks.js"), "utf8"));
+  await new Promise((resolve) => setTimeout(resolve, 1600));
+  assert.strictEqual(asks, 1);
+  up = true;
+  offset = 31 * 1000;
+  await new Promise((resolve) => setTimeout(resolve, 3600));
+  assert.ok(asks >= 2);
+  assert.ok(window.document.querySelectorAll("wjs-fit-tag[data-bar]").length >= 1);
+  window.close();
+});

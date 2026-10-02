@@ -370,5 +370,7 @@
     schedule();
   });
   new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
-  setInterval(liftAboveFox, 1500); // the fox can be opened or minimized at any time
+  // The fox can be opened or minimized at any time; while the notice shows, the profile is asked for again every 30 seconds
+  // (checkProfile holds that pace), so it clears by itself once Job Finder is back.
+  setInterval(() => { liftAboveFox(); if (notice) checkProfile(); }, 1500);
 })();
