@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Web Job Scraper",
-  "version": "0.9.2",
+  "version": "0.10.0",
   "description": "Saves the jobs you browse on LinkedIn and the Maryland Workforce Exchange into daily files that Job Finder imports.",
   "browser_specific_settings": {
     "gecko": {
@@ -29,7 +29,7 @@
     "http://127.0.0.1:5000/*"
   ],
   "background": {
-    "scripts": ["sites/linkedin-parse.js", "sites/mwe-parse.js", "sites/sample-only.js", "background.js", "runs.js"],
+    "scripts": ["sites/linkedin-parse.js", "sites/mwe-parse.js", "sites/usajobs-parse.js", "sites/sample-only.js", "background.js", "runs.js"],
     "persistent": true
   },
   "content_scripts": [
@@ -40,8 +40,13 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://www.indeed.com/*", "https://indeed.com/*", "https://www.usajobs.gov/*", "https://usajobs.gov/*"],
+      "matches": ["https://www.indeed.com/*", "https://indeed.com/*"],
       "js": ["sites/sample-only.js", "content/capture.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.usajobs.gov/*", "https://usajobs.gov/*"],
+      "js": ["sites/usajobs-parse.js", "content/capture.js"],
       "run_at": "document_idle"
     },
     {
