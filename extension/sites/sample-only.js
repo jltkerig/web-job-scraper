@@ -7,7 +7,8 @@
   root.SampleParse = {
     SITE: "sample", NAME: "Sample", jobUrl: () => "", idFromUrl: () => null, pageKind: () => "other",
     fromVoyager: () => [], fromDom: () => [], fromEmbedded: () => [], expectsJobs: () => false,
-    onJobsPage: () => false, detailId: () => null,
+    onJobsPage: () => true, // every page there reports in, so background.js can keep a sample of each kind
+    detailId: () => null,
   };
   // On a page where no real reader loaded first, capture.js uses this one.
   root.CaptureParse = root.CaptureParse || root.SampleParse;
