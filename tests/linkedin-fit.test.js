@@ -230,7 +230,7 @@ test("on the 2026 layout: Fit tags, 'Remote' first then nearest, unknown last, r
     .sort((a, b) => a[1] - b[1]).map(([id]) => id);
   assert.deepStrictEqual(order, ["1737", "4575", "1323"]); // remote, then 45 min, then 75 min
   const labels = Array.from(window.document.querySelectorAll("wjs-fit-tag[data-distance]"), (tag) => tag.dataset.label).sort();
-  assert.deepStrictEqual(labels, ["21 mi · ~45 min", "39 mi · ~75 min", "Remote · no commute"]);
+  assert.deepStrictEqual(labels, ["21 mi · ~45 min", "39 mi · ~75 min", "Remote"]);
   assert.strictEqual(window.document.querySelectorAll("[data-wjs-fit]").length, 2); // both Graphic Designer cards fit
   window.close();
 });
@@ -254,12 +254,13 @@ test("every card gets a Fit tag AND a hide button; the Fit tag isn't lost when a
   const { window } = hidingPage();
   await new Promise((resolve) => setTimeout(resolve, 900));
   const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4466104575']");
-  assert.ok(card.querySelector(":scope > wjs-fit-tag[data-fit]"));
-  const bar = card.querySelector(":scope > wjs-fit-tag[data-bar]"); // the green bar is its own overlay, not a style LinkedIn's boxes can cover
-  assert.ok(bar);
-  assert.match(bar.shadowRoot.innerHTML, /#0b7a55/);
-  assert.match(bar.style.cssText, /pointer-events: none/);
-  assert.ok(card.querySelector(":scope > wjs-fit-tag[data-distance]"));
+  const fitTab = card.querySelector("wjs-fit-tag[data-fit]"); // a green tab like "Remote", beside it in one row
+  assert.ok(fitTab);
+  assert.match(fitTab.shadowRoot.textContent, /^(?:Good|Possible) Fit$/);
+  assert.match(fitTab.shadowRoot.firstChild.style.cssText, /#0b7a55|rgb\(11, 122, 85\)|#4b9a7e|rgb\(75, 154, 126\)/);
+  assert.strictEqual(card.querySelectorAll("wjs-fit-tag[data-bar]").length, 0); // no green bar over the card any more
+  const row = card.querySelector(":scope > wjs-fit-tag[data-row]");
+  assert.ok(row.contains(fitTab) && row.querySelector("wjs-fit-tag[data-distance]"));
   assert.strictEqual(card.querySelector(":scope > wjs-fit-tag[data-hide]").dataset.company, "GemHarvest Executive Recruiting");
   const x = card.querySelector(":scope > wjs-fit-tag[data-hide]").shadowRoot.querySelector("button");
   assert.match(x.style.cssText, /border: 2px solid (?:#dc2626|rgb\(220, 38, 38\))/); // a red circle
@@ -318,7 +319,7 @@ test("with no profile the page says so, asks for it at once, and marks the cards
   window.eval(require("node:fs").readFileSync(require.resolve("../extension/content/fit-marks.js"), "utf8"));
   await new Promise((resolve) => setTimeout(resolve, 1600));
   assert.ok(asked.includes("fit-profile-now"));
-  assert.ok(window.document.querySelectorAll("wjs-fit-tag[data-bar]").length >= 1); // marks appear once the profile is read
+  assert.ok(window.document.querySelectorAll("wjs-fit-tag[data-fit]").length >= 1); // marks appear once the profile is read
   assert.strictEqual(window.document.querySelectorAll("wjs-fit-tag").length > 0 && Array.from(window.document.querySelectorAll("wjs-fit-tag")).some((t) => t.shadowRoot && /waiting for your Job Finder profile/.test(t.shadowRoot.textContent)), false); // the notice is gone
   window.close();
 });
@@ -404,6 +405,6 @@ test("the notice asks again by itself and goes away once Job Finder answers", as
   offset = 31 * 1000;
   await new Promise((resolve) => setTimeout(resolve, 3600));
   assert.ok(asks >= 2);
-  assert.ok(window.document.querySelectorAll("wjs-fit-tag[data-bar]").length >= 1);
+  assert.ok(window.document.querySelectorAll("wjs-fit-tag[data-fit]").length >= 1);
   window.close();
 });

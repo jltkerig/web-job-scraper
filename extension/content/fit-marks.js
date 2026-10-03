@@ -1,5 +1,5 @@
 // LinkedIn only. Using your Job Finder profile (fetched by background.js into storage as "fitProfile"):
-//   - highlights job cards whose title fits one of your titles (one colour, with a "Fit" tag),
+//   - marks job cards whose title fits one of your titles with a green "Good Fit" tab (like the "Remote" tab),
 //   - shows the open job's whole description instead of LinkedIn's shortened one with "… more",
 //   - adds a Job Fit badge above "About the job": the share of the skills it names that you have,
 //   - tags every card with its estimated distance and 6 a.m. drive time from your Home ZIP (worked out by Job Finder),
@@ -30,10 +30,24 @@
     [${MARK}] { position: relative !important; }
     wjs-fit-tag { position: absolute; top: 6px; right: 8px; z-index: 2; pointer-events: none; }
     wjs-fit-tag[data-distance] { top: auto; bottom: 6px; }
+    wjs-fit-tag[data-row] { top: auto; bottom: 6px; display: flex; gap: 6px; align-items: center; }
+    wjs-fit-tag[data-row] > wjs-fit-tag { position: static; }
     wjs-fit-tag[data-hide] { top: 30px; pointer-events: auto; }
     /* LinkedIn's own grey dismiss X on a card: only the red one stays */
     [data-wjs-card] button[aria-label^="Dismiss "][aria-label$=" job"] { display: none !important; }`;
   (document.head || document.documentElement).appendChild(style);
+
+  // The tags on a card ("Good Fit", "Remote", "21 mi · ~45 min") sit side by side in one row at the bottom right.
+  function tagRow(element) {
+    let row = element.querySelector(":scope > wjs-fit-tag[data-row]");
+    if (!row) {
+      row = document.createElement("wjs-fit-tag");
+      row.dataset.row = "1";
+      if (getComputedStyle(element).position === "static") element.style.setProperty("position", "relative", "important");
+      element.appendChild(row);
+    }
+    return row;
+  }
 
   function tag(text, extraCss) {
     const host = document.createElement("wjs-fit-tag");
@@ -106,7 +120,7 @@
 
   const retryAt = new Map(); // place -> time before which it isn't asked about again after a failure
   // A remote job has no commute: tagged "Remote" and listed first. Otherwise Job Finder's estimate for the town.
-  const REMOTE = { minutes: 0, text: "Remote · no commute" };
+  const REMOTE = { minutes: 0, text: "Remote" };
   function distanceOf(job) {
     if (job.work_arrangement === "Remote" || /^united states \(remote\)$/i.test(job.location)) return REMOTE;
     return distances.get(job.location);
@@ -130,16 +144,15 @@
   function markDistances(cards) {
     for (const { element, job } of cards) {
       const found = distanceOf(job);
-      const old = element.querySelector(":scope > wjs-fit-tag[data-distance]");
+      const old = element.querySelector("wjs-fit-tag[data-distance]");
       if (!found) { old?.remove(); continue; }
       if (old && old.dataset.label === found.text) continue;
       old?.remove();
       const host = tag(found.text, "background: #374151;");
       host.dataset.distance = "1";
       host.dataset.label = found.text;
-      host.title = "Estimated from your Home ZIP, driving at 6 a.m.";
-      if (getComputedStyle(element).position === "static") element.style.setProperty("position", "relative", "important");
-      element.appendChild(host);
+      host.title = found === REMOTE ? "Remote job" : "Estimated from your Home ZIP, driving at 6 a.m.";
+      tagRow(element).append(host);
     }
   }
 
@@ -174,30 +187,19 @@
       if (!result) {
         if (current !== null) {
           element.removeAttribute(MARK);
-          element.querySelector(":scope > wjs-fit-tag[data-fit]")?.remove();
-          element.querySelector(":scope > wjs-fit-tag[data-bar]")?.remove();
+          element.querySelector("wjs-fit-tag[data-fit]")?.remove();
         }
         continue;
       }
       if (current === result.reason) continue;
       element.setAttribute(MARK, result.reason);
       element.setAttribute("title", result.reason);
-      if (!element.querySelector(":scope > wjs-fit-tag[data-fit]")) {
-        const host = tag("Fit");
-        host.dataset.fit = "1";
-        element.appendChild(host);
-      }
-      // The green bar and a light green wash are an overlay of their own on top of the card's contents (like the tags),
-      // so nothing inside LinkedIn's card can paint over them. It ignores the mouse, so the card still clicks normally.
-      if (!element.querySelector(":scope > wjs-fit-tag[data-bar]")) {
-        const bar = document.createElement("wjs-fit-tag");
-        bar.dataset.bar = "1";
-        bar.style.cssText = "top: 0; right: 0; bottom: 0; left: 0; z-index: 1; pointer-events: none;";
-        const shadow = bar.attachShadow({ mode: "open" });
-        shadow.innerHTML = '<div style="position:absolute;inset:0;background:rgba(16,185,129,.10)"></div>' +
-          '<div style="position:absolute;left:0;top:0;bottom:0;width:6px;background:#0b7a55"></div>';
-        element.appendChild(bar);
-      }
+      element.querySelector("wjs-fit-tag[data-fit]")?.remove();
+      // A green tab like "Remote": "Good Fit" when the title matches one of yours, "Possible Fit" when it is close.
+      const host = tag(result.level === "good" ? "Good Fit" : "Possible Fit", result.level === "good" ? "" : "background: #4b9a7e;");
+      host.dataset.fit = "1";
+      host.title = result.reason;
+      tagRow(element).prepend(host);
     }
   }
 
@@ -302,7 +304,7 @@
     if (!timer) timer = setTimeout(run, 600);
   }
 
-  // No profile (or one with no titles) means no Fit tags or green bars. Ask the background script to read it from
+  // No profile (or one with no titles) means no Good Fit tabs. Ask the background script to read it from
   // Job Finder now, and say so on the page, so a missing profile is never a silent "nothing is green".
   let notice = null;
   let askedAt = 0;
