@@ -124,7 +124,7 @@ const CARDS = `<!doctype html><html><body><main><ul id="list">
 function cardsPage(sortByDistance) {
   const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4400000021";
   const window = new JSDOM(CARDS, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
-  const answers = { "Lancaster, PA": { minutes: 75, text: "39 mi · ~75 min" }, "Bel Air, MD": { minutes: 15, text: "5 mi · ~15 min" },
+  const answers = { "Lancaster, PA": { minutes: 150, text: "118 mi · ~2 hr 30 min" }, "Bel Air, MD": { minutes: 15, text: "5 mi · ~15 min" },
     "Towson, MD": { minutes: 45, text: "19 mi · ~45 min" }, "Nowhereville, ZZ": null };
   const asked = [];
   window.browser = { runtime: { sendMessage: async (message) => { asked.push(message); return { places: answers }; } },
@@ -136,7 +136,7 @@ function cardsPage(sortByDistance) {
   return { window, asked };
 }
 
-test("every card shows its estimated drive and the list goes nearest first, unknown last", async () => {
+test("cards show their estimated drive (none over 2 hours) and the list goes nearest first, unknown last", async () => {
   const { window, asked } = cardsPage(true);
   await new Promise((resolve) => setTimeout(resolve, 900));
   assert.deepStrictEqual([...asked[0].places].sort(), ["Bel Air, MD", "Lancaster, PA", "Nowhereville, ZZ", "Towson, MD"]);
@@ -144,7 +144,7 @@ test("every card shows its estimated drive and the list goes nearest first, unkn
   const byOrder = order.slice().sort((a, b) => a[1] - b[1]).map(([name]) => name);
   assert.deepStrictEqual(byOrder, ["Near Co", "Mid Co", "Far Co", "Mystery Co"]);
   const labels = Array.from(window.document.querySelectorAll("wjs-fit-tag[data-distance]"), (tag) => tag.dataset.label).sort();
-  assert.deepStrictEqual(labels, ["19 mi · ~45 min", "39 mi · ~75 min", "5 mi · ~15 min"]); // none for the unknown town
+  assert.deepStrictEqual(labels, ["19 mi · ~45 min", "5 mi · ~15 min"]); // none for the unknown town or the one over 2 hours away
   assert.strictEqual(window.document.querySelector("#list").style.getPropertyValue("flex-direction"), "column");
   window.close();
 });
@@ -152,7 +152,7 @@ test("every card shows its estimated drive and the list goes nearest first, unkn
 test("with the panel's checkbox off, distances are shown but nothing is reordered", async () => {
   const { window } = cardsPage(false);
   await new Promise((resolve) => setTimeout(resolve, 900));
-  assert.strictEqual(window.document.querySelectorAll("wjs-fit-tag[data-distance]").length, 3);
+  assert.strictEqual(window.document.querySelectorAll("wjs-fit-tag[data-distance]").length, 2);
   assert.ok(Array.from(window.document.querySelectorAll("#list > li")).every((li) => li.style.order === ""));
   window.close();
 });
