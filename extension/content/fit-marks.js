@@ -145,7 +145,8 @@
     for (const { element, job } of cards) {
       const found = distanceOf(job);
       const old = element.querySelector("wjs-fit-tag[data-distance]");
-      if (!found) { old?.remove(); continue; }
+      // Over two hours away is too far to matter: no tag (the card still sorts by its distance).
+      if (!found || found.minutes > 120) { old?.remove(); continue; }
       if (old && old.dataset.label === found.text) continue;
       old?.remove();
       const host = tag(found.text, "background: #374151;");
