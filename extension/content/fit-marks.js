@@ -30,14 +30,14 @@
     [${MARK}] { position: relative !important; }
     wjs-fit-tag { position: absolute; top: 6px; right: 8px; z-index: 2; pointer-events: none; }
     wjs-fit-tag[data-distance] { top: auto; bottom: 6px; }
-    wjs-fit-tag[data-row] { top: auto; bottom: 6px; display: flex; gap: 6px; align-items: center; }
+    wjs-fit-tag[data-row] { top: auto; bottom: 6px; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
     wjs-fit-tag[data-row] > wjs-fit-tag { position: static; }
-    wjs-fit-tag[data-hide] { top: 30px; pointer-events: auto; }
+    wjs-fit-tag[data-hide] { top: 6px; pointer-events: auto; }
     /* LinkedIn's own grey dismiss X on a card: only the red one stays */
     [data-wjs-card] button[aria-label^="Dismiss "][aria-label$=" job"] { display: none !important; }`;
   (document.head || document.documentElement).appendChild(style);
 
-  // The tags on a card ("Good Fit", "Remote", "21 mi · ~45 min") sit side by side in one row at the bottom right.
+  // The tags on a card ("Good Fit", "Remote", "21 mi · ~45 min") stack one above another at the bottom right.
   function tagRow(element) {
     let row = element.querySelector(":scope > wjs-fit-tag[data-row]");
     if (!row) {
