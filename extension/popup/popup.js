@@ -240,16 +240,22 @@ browser.storage.local.get(["fitProfile", "fitProfileAt", "fitProfileError", "dis
   const status = document.getElementById("fit-status");
   const titles = (saved.fitProfile && saved.fitProfile.titles) || [];
   if (!saved.fitProfile) {
-    status.textContent = "Waiting for your profile: open Job Finder once and the markers start.";
+    status.textContent = "No profile yet: on Job Finder's Dashboard click Export for Web Job Scraper, then Load profile here.";
   } else if (!titles.length) {
     status.textContent = "Your Job Finder profile has no job titles yet, so nothing is marked.";
   } else {
     const when = saved.fitProfileAt ? new Date(saved.fitProfileAt).toLocaleString() : "earlier";
     status.textContent = `Using ${titles.length} title${titles.length === 1 ? "" : "s"} and ` +
-      `${(saved.fitProfile.skills || []).length} skills from Job Finder (updated ${when}).` +
-      (saved.fitProfileError ? ` ${saved.fitProfileError}` : "") + (saved.distanceError ? ` ${saved.distanceError}` : "");
+      `${(saved.fitProfile.skills || []).length} skills from your Job Finder profile (loaded ${when}).` +
+      (saved.distanceError ? ` ${saved.distanceError}` : "");
   }
 }).catch(() => {});
+
+// Load profile opens a page of its own: Firefox closes the popup when a file picker opens.
+document.getElementById("load-profile").addEventListener("click", () => {
+  browser.tabs.create({ url: browser.runtime.getURL("profile/profile.html") });
+  window.close();
+});
 
 // "Nearest first": remembered in storage; the LinkedIn page script reads it.
 browser.storage.local.get("sortByDistance").then((saved) => {

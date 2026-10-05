@@ -1,8 +1,8 @@
-// LinkedIn only. Using your Job Finder profile (fetched by background.js into storage as "fitProfile"):
+// LinkedIn only. Using your Job Finder profile (loaded from a file exported on Job Finder's Dashboard, kept in storage as "fitProfile"):
 //   - marks job cards whose title fits one of your titles with a green "Good Fit" tab (like the "Remote" tab),
 //   - shows the open job's whole description instead of LinkedIn's shortened one with "… more",
 //   - adds a Job Fit badge above "About the job": the share of the skills it names that you have,
-//   - tags every card with its estimated distance and 6 a.m. drive time from your Home ZIP (worked out by Job Finder),
+//   - tags every card with its estimated distance and 6 a.m. drive time from your Home ZIP (worked out in background.js, as Job Finder does),
 //     and lists the cards nearest first. Ordering only sets display styles (CSS "order"); no card is ever moved,
 //     so LinkedIn's own page is left intact.
 // Display only: it never clicks, scrolls, navigates or fetches. The full description is already in the page;
@@ -119,7 +119,7 @@
   }
 
   const retryAt = new Map(); // place -> time before which it isn't asked about again after a failure
-  // A remote job has no commute: tagged "Remote" and listed first. Otherwise Job Finder's estimate for the town.
+  // A remote job has no commute: tagged "Remote" and listed first. Otherwise the estimate for the town.
   const REMOTE = { minutes: 0, text: "Remote" };
   function distanceOf(job) {
     if (job.work_arrangement === "Remote" || /^united states \(remote\)$/i.test(job.location)) return REMOTE;
@@ -305,11 +305,11 @@
     if (!timer) timer = setTimeout(run, 600);
   }
 
-  // No profile (or one with no titles) means no Good Fit tabs. Ask the background script to read it from
-  // Job Finder now, and say so on the page, so a missing profile is never a silent "nothing is green".
+  // No profile (or one with no titles) means no Good Fit tabs. Say so on the page, so a missing profile is never a
+  // silent "nothing is green".
   let notice = null;
   let askedAt = 0;
-  let problem = "Fit markers: waiting for your Job Finder profile…"; // what the last attempt found
+  let problem = "Fit markers: load your Job Finder profile (extension button > Load profile)."; // what the last check found
   function showNotice(text) {
     if (!text) { notice?.remove(); notice = null; return; }
     if (!notice) {
@@ -354,7 +354,7 @@
         showNotice(problem);
       }
     } catch (error) {
-      problem = "Fit markers: the extension couldn't reach Job Finder. Is it running?";
+      problem = "Fit markers: the extension couldn't read its saved profile. Load it again (extension button > Load profile).";
       showNotice(problem);
     }
   }
@@ -374,6 +374,6 @@
   });
   new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
   // The fox can be opened or minimized at any time; while the notice shows, the profile is asked for again every 30 seconds
-  // (checkProfile holds that pace), so it clears by itself once Job Finder is back.
+  // (checkProfile holds that pace), so it clears by itself once a profile is loaded.
   setInterval(() => { liftAboveFox(); if (notice) checkProfile(); }, 1500);
 })();

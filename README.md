@@ -44,7 +44,7 @@ So you know which jobs are worth opening:
 - **Hide a company:** each card has a small **X**. Click it and every job from that company disappears from the list (the card doesn't open). The companies you hid are listed in the panel under **Hidden companies**, each with an **Unhide** button. Companies you blocked in Job Finder are hidden on LinkedIn too. Hiding is display only; nothing is deleted or sent anywhere.
 - **Fit tags are choosy:** a title counts when all its words are in the job's title, or (for titles of two or more words) when the job word matches and at least half the words do. A very common job word such as *specialist* or *manager* isn't enough alone, so *Marketing Specialist* is not a fit for *Production Specialist*.
 
-The extension reads your titles, skills and work preferences from Job Finder on this computer (`http://127.0.0.1:5000/extension/fit-profile`) when Firefox starts and every 30 minutes, and keeps the last copy when Job Finder isn't running. The panel's **Fit markers** line says when it was last updated. Nothing is sent to LinkedIn or anywhere else.
+The extension uses a copy of your Job Finder profile: titles, skills, work preferences, blocked companies and your home's map point. On Job Finder's Dashboard (desktop or web), click **Export for Web Job Scraper**, then in the extension's panel click **Load profile** and choose the file. Export and load it again after changing your titles, skills or Home ZIP. Distances and drive times are worked out inside the extension from the bundled U.S. Census places table (`extension/data/us-places.json`), the same estimate Job Finder uses. The extension never connects to Job Finder. Nothing is sent to LinkedIn or anywhere else.
 
 ## Indeed and USAJOBS (collecting page layouts first)
 
@@ -220,6 +220,6 @@ These are carried over from the original plan.
 
 ## Privacy
 
-- Everything stays on your computer. The extension only talks to Job Finder at `127.0.0.1:5000` (which now refuses any request addressed to another name) and to this project's GitHub Pages site for update checks.
+- Everything stays on your computer. The extension doesn't connect to Job Finder at all; it only talks to this project's GitHub Pages site for update checks.
 - Job files and "page samples" are saved in plain text in your downloads folder (`web-job-scraper\`). Samples are made without scripts and without anything typed into a field, but they are still pages you were signed in on, so they can hold your name. They are only made on job search and job pages, never on account, profile, resume or message pages. Delete the `debug` folder when you no longer need it, and turn off "Page samples" in the panel to stop them.
 - A LinkedIn sample also saves LinkedIn's background job data (`responses.json`), which can include your own account details. These are only saved when capture finds nothing or when you press the panel's save button.
