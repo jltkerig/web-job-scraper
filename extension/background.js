@@ -539,18 +539,16 @@ browser.runtime.onMessage.addListener((message, sender) => {
         }
         return true;
       case "page-settled":
-        refreshFitProfileIfStale();
         await pageSettled(message.site, message, tabId);
         return true;
       case "distances":
         return distancesFor(message.places);
-      case "fit-profile-push": // a Job Finder page hands the profile over (works even if the extension can't reach it itself)
-        if (message.profile && Array.isArray(message.profile.titles)) { lastFitFetch = Date.now(); await saveFitProfile(message.profile); }
-        return true;
-      case "fit-profile-now": { // the LinkedIn page has no profile (or none with titles): read it now, and say what happened
-        await refreshFitProfile();
+      case "load-profile": // profile/profile.html: a file exported from Job Finder
+        return loadProfileFile(message.profile);
+      case "fit-profile-now": { // the LinkedIn page has no profile (or none with titles): say what is saved
         const saved = await browser.storage.local.get(["fitProfile", "fitProfileError"]);
-        return { titles: ((saved.fitProfile && saved.fitProfile.titles) || []).length, error: saved.fitProfileError || "" };
+        return { titles: ((saved.fitProfile && saved.fitProfile.titles) || []).length,
+          error: saved.fitProfile ? "" : "load your Job Finder profile (extension button > Load profile)." };
       }
       case "popup-state":
         return popupState();
@@ -625,93 +623,127 @@ browser.tabs.onRemoved.addListener((tabId) => {
   if (site) flush(true);
 });
 
-// Your Job Finder profile (titles, skills, work preferences) for marking LinkedIn jobs that may fit
-// (content/fit-marks.js). Read from Job Finder on this computer every 30 minutes; the last copy is kept when
-// Job Finder isn't running.
-let lastFitFetch = 0;
-// Also asked for when a page loads and the copy is over 2 minutes old, so a change to skills or titles in Job Finder
-// reaches the fit marks soon after it is saved.
-function refreshFitProfileIfStale() {
-  if (Date.now() - lastFitFetch > 2 * 60 * 1000) refreshFitProfile();
-}
-// Reads one of Job Finder's /extension/ pages. Directly first; if Firefox refuses that connection from the extension
-// (a "NetworkError"), through an open Job Finder tab, whose page script (content/jf-bridge.js) asks for it.
-const JOB_FINDER = "http://127.0.0.1:5000";
-async function jobFinderJson(path) {
-  let direct = "";
-  try {
-    const response = await fetch(JOB_FINDER + path, { cache: "no-store" });
-    if (!response.ok) throw new Error(`Job Finder answered HTTP ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    direct = String((error && error.message) || error);
-    if (/HTTP \d+/.test(direct)) throw error; // it answered; going around won't change the answer
-  }
-  try {
-    const tabs = await browser.tabs.query({ url: [`${JOB_FINDER}/*`] });
-    for (const tab of tabs) {
-      try {
-        const reply = await browser.tabs.sendMessage(tab.id, { type: "jf-fetch", path });
-        if (reply && reply.ok) return reply.data;
-      } catch (error) {
-        // that tab was loaded before the extension was; try the next one
-      }
-    }
-  } catch (error) {
-    // no tab access: fall through to the message below
-  }
-  throw new Error(`Firefox won't let the extension connect to Job Finder (${direct}). Open Job Finder in a Firefox tab (${JOB_FINDER}) and reload it; it will pass your profile on from there`);
-}
-
+// Your Job Finder profile (titles, skills, work preferences, blocked companies, home) for marking LinkedIn jobs that
+// may fit (content/fit-marks.js). The extension works on its own: you export the profile from Job Finder's Dashboard
+// ("Export for Web Job Scraper") and load the file here (popup > Load profile, profile/profile.html). Nothing is read
+// from Job Finder, on this computer or the web.
 async function saveFitProfile(profile) {
-  distanceCache.clear(); // the Home ZIP may have changed
-  await browser.storage.local.set({ fitProfile: profile, fitProfileAt: new Date().toISOString(), fitProfileError: "" });
+  distanceCache.clear(); // the home may have changed
+  await browser.storage.local.set({ fitProfile: profile, fitProfileAt: new Date().toISOString(), fitProfileError: "", distanceError: "" });
 }
 
-async function refreshFitProfile() {
-  lastFitFetch = Date.now();
-  let step = "asking Job Finder";
-  try {
-    const profile = await jobFinderJson("/extension/fit-profile");
-    step = "saving the profile in Firefox";
-    await saveFitProfile(profile);
-  } catch (error) {
-    // Say what really failed: Job Finder can be running and answering while the reply is unreadable or can't be saved.
-    const detail = String((error && error.message) || error);
-    const message = step === "asking Job Finder" ? `${detail}.` : `The profile reached the extension but failed while ${step} (${detail}).`;
-    await browser.storage.local.set({ fitProfileError: message }).catch(() => {});
+// A profile file from Job Finder: checked, then kept. Returns { ok, titles, skills } or { ok: false, error }.
+async function loadProfileFile(profile) {
+  if (!profile || profile.source !== "job-finder" || profile.kind !== "fit-profile" || !Array.isArray(profile.titles)) {
+    return { ok: false, error: "That isn't a Job Finder profile file. On Job Finder's Dashboard, click Export for Web Job Scraper." };
   }
+  await saveFitProfile(profile);
+  return { ok: true, titles: profile.titles.length, skills: (profile.skills || []).length };
 }
-// Estimated distance and 6 a.m. drive time from your Home ZIP to each job's town, worked out by Job Finder on this
-// computer (the same estimate as its Dashboard). Remembered until the profile is read again.
+
+// Estimated distance and 6 a.m. drive time from home to each job's town, the same estimate as Job Finder's Dashboard
+// (travel.py / places.php): straight-line miles from the U.S. Census places table bundled in data/, times 1.3 for
+// roads, at slower speeds near home. Nothing is looked up online.
 const distanceCache = new Map(); // place -> { miles, minutes, text } or null
-async function distancesFor(places) {
-  const wanted = [...new Set((places || []).map(String))].slice(0, 100);
-  const missing = wanted.filter((place) => !distanceCache.has(place));
-  if (missing.length) {
-    try {
-      const data = await jobFinderJson("/extension/distances?places=" + encodeURIComponent(missing.join("|")));
-      for (const place of missing) distanceCache.set(place, (data.places || {})[place] || null);
-      browser.storage.local.set({ distanceError: "" }).catch(() => {});
-    } catch (error) {
-      // Not remembered, so it is asked again later; the panel says what went wrong.
-      browser.storage.local.set({ distanceError: `Distances couldn't be read from Job Finder (${error.message || error}).` }).catch(() => {});
-      return { places: {}, error: String(error.message || error) };
+let placeIndex = null;
+const STATE_NAMES = { AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut",
+  DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana",
+  IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan",
+  MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania",
+  RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia",
+  WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", PR: "Puerto Rico" };
+// States next to each other, so places near home come first ("Lancaster" -> Lancaster, PA for someone in MD).
+const NEIGHBORS = { MD: ["DE", "PA", "VA", "WV", "DC"], DE: ["MD", "PA", "NJ"], PA: ["MD", "DE", "NJ", "NY", "OH", "WV"],
+  VA: ["MD", "DC", "WV", "KY", "TN", "NC"], DC: ["MD", "VA"], NJ: ["NY", "PA", "DE"], WV: ["MD", "PA", "OH", "KY", "VA"],
+  NY: ["NJ", "PA", "CT", "MA", "VT"] };
+const DRIVE_SPEEDS = [[3, 20], [10, 30], [25, 42], [60, 52], [1e9, 58]]; // [road miles up to, mph at 6 a.m.]
+
+function placeKey(text) {
+  return String(text).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function stateCode(text) {
+  const clean = String(text || "").trim();
+  if (STATE_NAMES[clean.toUpperCase()]) return clean.toUpperCase();
+  return Object.keys(STATE_NAMES).find((code) => STATE_NAMES[code].toLowerCase() === clean.toLowerCase()) || "";
+}
+
+async function places() {
+  if (!placeIndex) placeIndex = await (await fetch(browser.runtime.getURL("data/us-places.json"))).json();
+  return placeIndex;
+}
+
+// [lat, lon] for "Bel Air, MD", "Baltimore, Maryland, United States" or "Baltimore Metropolitan Area".
+function placePoint(index, text, homeState) {
+  const parts = String(text || "").replace(/\([^)]*\)/g, " ").split(",").map((part) => part.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const candidates = index[placeKey(parts[0].replace(/\b(?:greater|metropolitan|metro|area|region)\b/gi, " "))];
+  if (!candidates) return null;
+  const state = parts[1] ? stateCode(parts[1]) : "";
+  if (state) {
+    const match = candidates.find((c) => c[0] === state);
+    return match ? [match[2], match[3]] : null;
+  }
+  const home = String(homeState || "").trim().slice(0, 2).toUpperCase();
+  const near = home ? [home, ...(NEIGHBORS[home] || [])] : [];
+  const best = [...candidates].sort((a, b) => (near.includes(b[0]) - near.includes(a[0])) || (b[1] - a[1]))[0];
+  return [best[2], best[3]];
+}
+
+function milesBetween([lat1, lon1], [lat2, lon2]) {
+  const rad = Math.PI / 180;
+  const h = Math.sin((lat2 - lat1) * rad / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin((lon2 - lon1) * rad / 2) ** 2;
+  return 3958.8 * 2 * Math.asin(Math.sqrt(h));
+}
+
+function driveMinutes(straight) {
+  const road = straight * 1.3;
+  let minutes = 0, done = 0;
+  for (const [limit, mph] of DRIVE_SPEEDS) {
+    const stretch = Math.min(road, limit) - done;
+    if (stretch > 0) { minutes += stretch / mph * 60; done += stretch; }
+    if (done >= road) break;
+  }
+  return minutes;
+}
+
+// { miles, minutes, text: "12 mi · ~20 min" } or null when home or the place isn't known.
+function describeTrip(home, point) {
+  if (!home || !point) return null;
+  const straight = milesBetween(home, point);
+  const minutes = driveMinutes(straight);
+  const shown = minutes >= 3 ? Math.max(5, Math.round(minutes / 5) * 5) : Math.max(1, Math.round(minutes));
+  const miles = Math.round(straight);
+  const lasts = shown < 120 ? `~${shown} min` : `~${Math.round(shown / 60)} hr`;
+  return { miles, minutes: shown, text: miles ? `${miles.toLocaleString("en-US")} mi · ${lasts}` : `under 1 mi · ${lasts}` };
+}
+
+async function distancesFor(wantedPlaces) {
+  const wanted = [...new Set((wantedPlaces || []).map(String))].slice(0, 100);
+  const { fitProfile } = await browser.storage.local.get("fitProfile");
+  const home = fitProfile && fitProfile.home && fitProfile.home.lat != null ? [fitProfile.home.lat, fitProfile.home.lon] : null;
+  if (!home) {
+    browser.storage.local.set({ distanceError: "Distances need your Home ZIP: add it on Job Finder's Dashboard, export again and load the file." }).catch(() => {});
+    return { places: {}, error: "no home" };
+  }
+  try {
+    const index = await places();
+    for (const place of wanted) {
+      if (!distanceCache.has(place)) distanceCache.set(place, describeTrip(home, placePoint(index, place, fitProfile.home.state)));
     }
+  } catch (error) {
+    return { places: {}, error: String(error.message || error) };
   }
   return { places: Object.fromEntries(wanted.map((place) => [place, distanceCache.get(place)])) };
 }
 
-refreshFitProfile();
-
 browser.alarms.create("flush", { periodInMinutes: 1 });
-browser.alarms.create("fit-profile", { periodInMinutes: 5 }); // so a skills change in Job Fit shows within minutes
+browser.alarms.clear("fit-profile"); // older versions read Job Finder every few minutes
 browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "flush") {
     flush(false);
     updateBadge(); // rolls the "new today" count over at midnight
-  } else if (alarm.name === "fit-profile") {
-    refreshFitProfile();
   } else if (alarm.name.startsWith("run:")) {
     startRun(alarm.name.slice(4)); // runs.js: a scheduled run's time has come
   }
