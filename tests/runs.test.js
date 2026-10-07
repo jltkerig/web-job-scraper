@@ -62,6 +62,8 @@ function sandbox({ redirect = (url) => url, jobsPerPage = 3 } = {}) {
           return tabs.get(id);
         },
         remove: async (id) => tabs.delete(id),
+        executeScript: async () => [["https://www.linkedin.com/jobs/collections/based-on-preferences/?discover=true",
+          "https://www.linkedin.com/jobs/collections/recommended/?x=1", "https://www.linkedin.com/jobs/view/1"]],
       },
     },
   };
@@ -93,8 +95,13 @@ test("a run reads the recommended pages and the watched companies' pages, opens 
   assert.strictEqual(done.fresh, 24);
   assert.strictEqual(done.opened, 10); // at most 10 opened per run
   assert.match(done.message, /24 jobs, 24 new, 10 opened/);
-  assert.deepStrictEqual(context.visited.slice(0, 3), ["https://www.linkedin.com/jobs/", "https://www.linkedin.com/jobs/collections/recommended/",
-    "https://www.linkedin.com/company/flywheel-digital/jobs/"]);
+  assert.deepStrictEqual(context.visited.slice(0, 4), ["https://www.linkedin.com/jobs/", "https://www.linkedin.com/jobs/collections/recommended/",
+    "https://www.linkedin.com/jobs/collections/recommended/?start=25", "https://www.linkedin.com/jobs/collections/top-applicant/"]);
+  assert.ok(context.visited.includes("https://www.linkedin.com/jobs/collections/remote-jobs/"));
+  // a list linked from the jobs home is read too, once
+  assert.strictEqual(context.visited.filter((url) => url === "https://www.linkedin.com/jobs/collections/based-on-preferences/").length, 1);
+  assert.strictEqual(context.visited.filter((url) => url === "https://www.linkedin.com/jobs/collections/recommended/").length, 1);
+  assert.ok(context.visited.includes("https://www.linkedin.com/company/flywheel-digital/jobs/"));
   assert.strictEqual(tabs.size, 0, "the run's tab was left open");
   assert.strictEqual(context.isRunTab(1), false);
 });
