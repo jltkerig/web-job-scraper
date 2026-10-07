@@ -8,8 +8,24 @@
 
 const RUN_PAGES = [
   "https://www.linkedin.com/jobs/", // "Top job picks for you"
-  "https://www.linkedin.com/jobs/collections/recommended/", // "Recommended for you"
 ];
+// LinkedIn's job collections (the lists under "More jobs for you"). Each is read page by page (RUN_LIST_STEP jobs
+// a page) until a page brings no jobs it hadn't seen this run, or RUN_LIST_PAGES pages. A collection LinkedIn
+// doesn't offer you just brings nothing.
+const RUN_COLLECTIONS = [
+  "recommended", // "Recommended for you"
+  "top-applicant", // "Jobs where you'd be a top applicant"
+  "still-hiring", // "Still hiring"
+  "easy-apply", // "Easy Apply"
+  "remote-jobs", // "Remote"
+  "hybrid", // "Hybrid"
+  "small-business", // "Small businesses"
+  "fair-chance", // "Fair chance employers"
+  "part-time-jobs", // "Part-time"
+  "recently-posted", // "Recently posted"
+].map((name) => `https://www.linkedin.com/jobs/collections/${name}/`);
+const RUN_LIST_PAGES = 3;
+const RUN_LIST_STEP = 25;
 // Companies you want checked every run: their own LinkedIn jobs pages. Add more lines here.
 const RUN_COMPANY_PAGES = [
   "https://www.linkedin.com/company/flywheel-digital/jobs/", // Flywheel
@@ -118,6 +134,24 @@ function pause(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// The "Show all" links on the jobs home ("More jobs for you", "Jobs that match your profile", "Jobs based on your
+// preferences" and the rest): every collection the page points to, so lists LinkedIn adds later are read too.
+async function collectionLinks() {
+  try {
+    const [hrefs] = await browser.tabs.executeScript(activeRun.tabId, {
+      code: "[...document.querySelectorAll('a[href*=\"/jobs/collections/\"]')].map((a) => a.href)",
+    });
+    const found = new Set();
+    for (const href of hrefs || []) {
+      const match = /^https:\/\/www\.linkedin\.com\/jobs\/collections\/([\w-]+)/.exec(href);
+      if (match) found.add(`https://www.linkedin.com/jobs/collections/${match[1]}/`);
+    }
+    return [...found];
+  } catch (error) {
+    return []; // the page couldn't be read: the known collections are still read
+  }
+}
+
 // After every page: a sign-in page or a security check ends the run at once.
 async function checkRunTab() {
   if (activeRun.stopped) throw activeRun.stopped;
@@ -162,13 +196,27 @@ async function startRun(id) {
   }
   activeRun = { id, tabId: tab.id, seen: new Set(), fresh: new Set(), stopped: null };
   try {
-    // 1. The recommended-jobs pages and the watched companies' jobs pages: page 1 of each.
-    for (const page of [...RUN_PAGES, ...RUN_COMPANY_PAGES]) {
+    // 1. The jobs home, every collection (page by page) and the watched companies' jobs pages.
+    const readPage = async (page) => {
+      const before = activeRun.seen.size;
       await openInRunTab(page);
       await checkRunTab();
       await pause(randomBetween(RUN_PAGE_WAIT_MS));
       await checkRunTab();
+      return activeRun.seen.size > before;
+    };
+    const lists = new Set(RUN_COLLECTIONS);
+    for (const page of RUN_PAGES) {
+      await readPage(page);
+      for (const found of await collectionLinks()) lists.add(found);
     }
+    for (const list of lists) {
+      for (let index = 0; index < RUN_LIST_PAGES; index += 1) {
+        const url = index ? `${list}?start=${index * RUN_LIST_STEP}` : list;
+        if (!(await readPage(url))) break; // nothing new: the list has run out (or doesn't exist)
+      }
+    }
+    for (const page of RUN_COMPANY_PAGES) await readPage(page);
     // 2. Up to 10 new jobs it doesn't have details for yet, one at a time.
     const toOpen = [...activeRun.fresh].map((key) => state.jobs[key])
       .filter((job) => job && job.level !== "opened" && !job.closed).slice(0, RUN_MAX_OPENED);
