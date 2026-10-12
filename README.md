@@ -124,14 +124,16 @@ Jobs that aren't imported stay in the files, so nothing is lost.
 
 ```
 Downloads\web-job-scraper\
-  searches\passive-09-30-2026\linkedin\jobs.json   ← the extension saves here
+  searches\passive-09-30-2026-14.05.12.347\linkedin\jobs.json   ← one new file for every save
   debug\linkedin-09-30-2026-14.05\                 ← "Save page for fixing"
 
 web-job-scraper\searches\
-  passive-09-30-2026\linkedin\jobs.json            ← moved here when you click Yes
-  passive-09-30-2026\linkedin\jobs.csv             ← the same jobs, for a spreadsheet
-  .imported.json                                   ← which files were already imported
+  passive-09-30-2026-14.05.12.347\linkedin\jobs.json   ← moved here when you click Yes
+  passive-09-30-2026-14.05.12.347\linkedin\jobs.csv    ← the same jobs, for a spreadsheet
+  .imported.json                                       ← which files were already imported
 ```
+
+Each save writes its own file holding only the jobs that are new or changed since the previous one, and a file is never rewritten. Once a file is imported, Job Finder marks it and does not ask for it again; only newer files show up. (Older versions rewrote one file per day.)
 
 `Downloads` above means Firefox's download folder. If Firefox saves downloads to the Desktop, the files are in `Desktop\web-job-scraper\`, and Job Finder looks there automatically. Folder names use month-day-year. To use different folders, add `capture_downloads_dir` or `capture_searches_dir` to Job Finder's `settings.json`.
 

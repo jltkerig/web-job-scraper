@@ -1,5 +1,6 @@
-// Keeps every captured job, writes one jobs.json per site per day into
-// web-job-scraper\searches\passive-mm-dd-yyyy\<site>\ in Firefox's downloads folder, and runs the capture health check.
+// Keeps every captured job, writes a new jobs.json for each save (only the jobs that are new or changed since the
+// last one) into web-job-scraper\searches\passive-mm-dd-yyyy-hh.mm.ss.mmm\<site>\ in Firefox's downloads folder, and
+// runs the capture health check.
 "use strict";
 
 // Each site: its reader, the background data to read (LinkedIn only), and the hosts it lives on.
@@ -49,6 +50,7 @@ const state = {
   settings: { enabled: { linkedin: true, mwe: true } },
   dirty: new Set(), // "site|yyyy-mm-dd" files that need writing
   lastSave: {}, // site -> ISO time
+  lastWritten: {}, // "site|yyyy-mm-dd" -> ISO time of the last file written: the next file holds what changed after it
   broken: {}, // site -> { url, since }
   errors: {}, // site -> { code, message, at } for the last failed save
   noDetails: {}, // site -> { jobId, url, since, saved } when an open job's details could not be read
@@ -85,7 +87,7 @@ function stamp(date = new Date()) {
 
 async function load() {
   const saved = await browser.storage.local.get(
-    ["jobs", "settings", "dirty", "lastSave", "broken", "errors", "noDetails", "autoSavedDay", "runs", "securityCheckDay",
+    ["jobs", "settings", "dirty", "lastSave", "lastWritten", "broken", "errors", "noDetails", "autoSavedDay", "runs", "securityCheckDay",
       "runAlert", "badgeClearedAt"]);
   state.badgeClearedAt = saved.badgeClearedAt || null;
   state.errors = saved.errors || {};
@@ -102,10 +104,12 @@ async function load() {
   state.settings.pet = { ...PET_DEFAULTS, ...pet, sites: { ...PET_DEFAULTS.sites, ...(pet.sites || {}) } };
   state.dirty = new Set(saved.dirty || []);
   state.lastSave = saved.lastSave || {};
+  state.lastWritten = saved.lastWritten || {};
   state.broken = saved.broken || {};
   const cutoff = Date.now() - KEEP_DAYS * 24 * 60 * 60 * 1000;
   for (const [key, job] of Object.entries(state.jobs)) {
     if (Date.parse(job.last_seen) < cutoff) delete state.jobs[key];
+    else if (!job.changed_at) job.changed_at = job.last_seen; // saved before files held only what changed
   }
   catchUpRuns(); // runs.js: runs due while Firefox was closed
   updateBadge();
@@ -119,7 +123,7 @@ function persistSoon() {
 function persist() {
   clearTimeout(persistTimer);
   return browser.storage.local.set({
-    jobs: state.jobs, settings: state.settings, dirty: [...state.dirty], lastSave: state.lastSave, broken: state.broken,
+    jobs: state.jobs, settings: state.settings, dirty: [...state.dirty], lastSave: state.lastSave, lastWritten: state.lastWritten, broken: state.broken,
     errors: state.errors, noDetails: state.noDetails, autoSavedDay: state.autoSavedDay, runs: state.runs,
     securityCheckDay: state.securityCheckDay, runAlert: state.runAlert, badgeClearedAt: state.badgeClearedAt,
   });
@@ -140,6 +144,7 @@ function merge(old, job, now) {
   record.url = job.url || record.url;
   record.level = record.level === "opened" || job.level === "opened" ? "opened" : "seen";
   if (job.level === "opened") record.closed = Boolean(job.closed);
+  else if (job.closed) record.closed = true; // a list card that says "No longer accepting applications"
   record.applied = Boolean(record.applied || job.applied); // LinkedIn doesn't show "Applied" everywhere, so keep it
   if (!record.page_kind || (record.page_kind === "other" && job.page_kind !== "other")) record.page_kind = job.page_kind;
   record.last_seen = now;
@@ -147,7 +152,7 @@ function merge(old, job, now) {
 }
 
 function sameContent(a, b) {
-  const strip = (record) => JSON.stringify({ ...record, last_seen: undefined });
+  const strip = (record) => JSON.stringify({ ...record, last_seen: undefined, changed_at: undefined });
   return strip(a) === strip(b);
 }
 
@@ -170,6 +175,7 @@ function addJobs(site, jobs, tabId) {
     keys.push(key);
     if (!old && record.title) freshKeys.push(key);
     if (!old || !sameDay || !sameContent(old, record)) {
+      record.changed_at = now;
       state.dirty.add(`${site}|${today}`);
       changed = true;
       if (!old && record.title) added += 1;
@@ -242,20 +248,31 @@ function download(filename, text, type) {
   });
 }
 
+// Writes one new file holding the day's jobs that are new or changed since the last file, so Job Finder imports
+// each scrape once and a file is never rewritten. Returns false when nothing changed.
 async function writeDay(site, day) {
+  const startedAt = new Date();
+  const since = state.lastWritten[`${site}|${day}`] || state.lastSave[site] || "";
   const jobs = Object.values(state.jobs)
-    .filter((job) => job.site === site && localDay(new Date(job.last_seen)) === day)
+    .filter((job) => job.site === site && localDay(new Date(job.last_seen)) === day && job.changed_at >= since)
+    .map(({ changed_at: changedAt, ...job }) => job)
     .sort((a, b) => a.first_seen.localeCompare(b.first_seen));
+  if (!jobs.length) return false;
   const body = {
     source: "web-job-scraper",
     extension_version: browser.runtime.getManifest().version,
     site,
     day,
-    written_at: new Date().toISOString(),
+    written_at: startedAt.toISOString(),
     jobs,
   };
-  const filename = `${ROOT}/searches/passive-${folderDate(day)}/${site}/jobs.json`;
+  // Down to the millisecond, so two saves never share a folder and one file can't overwrite another.
+  const time = [startedAt.getHours(), startedAt.getMinutes(), startedAt.getSeconds(), startedAt.getMilliseconds()]
+    .map((part, index) => String(part).padStart(index === 3 ? 3 : 2, "0")).join(".");
+  const filename = `${ROOT}/searches/passive-${folderDate(day)}-${time}/${site}/jobs.json`;
   await download(filename, JSON.stringify(body, null, 2), "application/json");
+  state.lastWritten[`${site}|${day}`] = startedAt.toISOString();
+  return true;
 }
 
 let flushing = false;
@@ -271,9 +288,9 @@ async function flush(force = false) {
       const last = Date.parse(state.lastSave[site] || 0) || 0;
       if (!force && Date.now() - last < SAVE_EVERY_MS) continue;
       try {
-        await writeDay(site, day);
+        const wrote = await writeDay(site, day);
         state.dirty.delete(key);
-        state.lastSave[site] = new Date().toISOString();
+        if (wrote) state.lastSave[site] = new Date().toISOString();
         delete state.errors[site];
       } catch (error) {
         // The jobs stay in the extension and the file is tried again at the next save.
