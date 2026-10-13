@@ -247,6 +247,13 @@
       leg(frame, x, top, dx, lift);
     });
     stamp(frame, BODY, 6, 15 + bob - rise);
+    // A raised head would float free of the shoulders, so a short neck joins them: orange, outlined, closed below.
+    for (let y = 17 + bob - rise - headLift; y <= 17 + bob - rise && headLift > 0; y += 1) {
+      frame.set(`20,${y}`, "K");
+      for (let x = 21; x <= 23; x += 1) frame.set(`${x},${y}`, "O");
+      frame.set(`24,${y}`, "K");
+    }
+    if (headLift > 0) for (let x = 22; x <= 24; x += 1) frame.set(`${x},${18 + bob - rise}`, "K");
     stamp(frame, HEAD, 19, 8 + bob - rise - headLift);
     dots(frame, eyes ? EYE_OPEN : EYE_CLOSED, 19, 8 + bob - rise - headLift);
     return frame;
