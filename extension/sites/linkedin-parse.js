@@ -112,6 +112,15 @@
     return "";
   }
 
+  // "Easy Apply" is LinkedIn's own button: you apply without leaving LinkedIn. It is a line on a card or in a job's header,
+  // and in the data as an apply method of an on-site kind.
+  const EASY_APPLY_LINE = /^easy apply$/i;
+
+  function easyApply(entity) {
+    const method = entity.applyMethod || (entity.applyingInfo && entity.applyingInfo.applyMethod) || {};
+    return entity.easyApply === true || method.easyApply === true || /OnsiteApply$/i.test(String(method.$type || ""));
+  }
+
   // LinkedIn marks jobs you applied to in the job's apply info or with an "Applied" footer on its card.
   function appliedTo(entity) {
     const info = entity.applyingInfo || {};
@@ -179,6 +188,7 @@
         job.closed = true;
       }
       if (appliedTo(entity)) job.applied = true;
+      if (easyApply(entity)) job.easy_apply = true; // only written when true, so other jobs' records don't change
     }
     return finish(jobs, pageUrl);
   }
@@ -280,6 +290,7 @@
     job.salary = header.find((line) => PAY_TEXT.test(line)) || "";
     job.posted = header.find((line) => POSTED_LINE.test(line)) || "";
     job.applied = header.some((line) => APPLIED_LINE.test(line) || APPLIED_TEXT.test(line));
+    if (header.some((line) => EASY_APPLY_LINE.test(line))) job.easy_apply = true;
     job.closed = header.some((line) => CLOSED_TEXT.test(line));
     if (!job.closed && /\/jobs\/view\//.test(pageUrl)) {
       // A closed job's page may not follow the usual header (no "About the job" section, no place line), so the notice is
@@ -319,6 +330,7 @@
       splitCompanyPlace(job);
       job.salary = card.find((line) => PAY_TEXT.test(line)) || "";
       job.applied = card.some((line) => APPLIED_LINE.test(line));
+      if (card.some((line) => EASY_APPLY_LINE.test(line))) job.easy_apply = true;
       job.closed = card.some((line) => CLOSED_TEXT.test(line));
       job.work_arrangement = arrangementFromText(card.find((line) => WORKPLACE_LINE.test(line)) || job.location);
       found.set(id, { element: block, job });
@@ -361,6 +373,7 @@
       splitCompanyPlace(job);
       job.salary = card.find((line) => PAY_TEXT.test(line)) || "";
       job.applied = card.some((line) => APPLIED_LINE.test(line));
+      if (card.some((line) => EASY_APPLY_LINE.test(line))) job.easy_apply = true;
       job.closed = card.some((line) => CLOSED_TEXT.test(line));
       job.work_arrangement = arrangementFromText(card.find((line) => WORKPLACE_LINE.test(line)) || job.location);
       found.set(id, { element, job });
@@ -420,6 +433,7 @@
       job.location = where;
       job.posted = body.find((line) => POSTED_LINE.test(line)) || "";
       job.applied = body.some((line) => APPLIED_LINE.test(line));
+      if (card.some((line) => EASY_APPLY_LINE.test(line))) job.easy_apply = true;
       job.closed = body.some((line) => CLOSED_TEXT.test(line));
       found.set(id, job);
     }
@@ -454,6 +468,7 @@
         }
         if (tracked.applied || stage === "applied") job.applied = true;
         if (tracked.closed) job.closed = true;
+        if (tracked.easy_apply) job.easy_apply = true;
         if (stage === "saved") job.saved = true;
         jobs.set(job.job_id, job);
       }

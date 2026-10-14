@@ -45,6 +45,27 @@ test("with only Saved ticked, every job on the tracker is a saved job", () => {
   assert.strictEqual(second.location, "Bronx, NY");
   assert.strictEqual(second.work_arrangement, "Remote");
   assert.strictEqual(second.posted, "Posted 2h ago");
+  // LinkedIn's Easy Apply button is on the second card only; the first one's button just says Apply.
+  assert.strictEqual(second.easy_apply, true);
+  assert.strictEqual(first.easy_apply, undefined);
+});
+
+test("Easy Apply is read from a search card's footer and from a job's own header", () => {
+  const search = "https://www.linkedin.com/jobs/search/?keywords=designer";
+  const cardHtml = `<main><ul><li><a href="https://www.linkedin.com/jobs/view/4400000061/"><p>Web Designer</p><p>Acme Health</p>
+    <p>Baltimore, MD</p><p>Easy Apply</p></a></li>
+    <li><a href="https://www.linkedin.com/jobs/view/4400000062/"><p>Front End Developer</p><p>Beta Co</p><p>Bel Air, MD</p></a></li></ul></main>`;
+  const jobs = parse.fromDom(new JSDOM(cardHtml, { url: search }).window.document, search);
+  const byId = Object.fromEntries(jobs.map((job) => [job.job_id, job]));
+  assert.strictEqual(byId["4400000061"].easy_apply, true);
+  assert.strictEqual(byId["4400000062"].easy_apply, undefined);
+  // the data LinkedIn sends: an on-site apply method
+  const voyager = { included: [{ entityUrn: "urn:li:fsd_jobPosting:4400000063", title: "Designer", jobState: "LISTED",
+    applyMethod: { $type: "com.linkedin.voyager.dash.jobs.ComplexOnsiteApply", easyApply: true } },
+    { entityUrn: "urn:li:fsd_jobPosting:4400000064", title: "Developer", applyMethod: { $type: "com.linkedin.voyager.jobs.OffsiteApply" } }] };
+  const fromData = Object.fromEntries(parse.fromVoyager(voyager, search).map((job) => [job.job_id, job]));
+  assert.strictEqual(fromData["4400000063"].easy_apply, true);
+  assert.strictEqual(fromData["4400000064"].easy_apply, undefined);
 });
 
 test("with only Applied ticked, the jobs are applied jobs and not saved ones", () => {

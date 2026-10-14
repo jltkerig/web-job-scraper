@@ -147,6 +147,7 @@ function merge(old, job, now) {
   else if (job.closed) record.closed = true; // a list card that says "No longer accepting applications"
   record.applied = Boolean(record.applied || job.applied); // LinkedIn doesn't show "Applied" everywhere, so keep it
   if (job.saved) record.saved = true; // seen on your Saved jobs; only written when true, so other jobs' records don't change
+  if (job.easy_apply) record.easy_apply = true; // LinkedIn's Easy Apply button, likewise
   if (!record.page_kind || (record.page_kind === "other" && job.page_kind !== "other")) record.page_kind = job.page_kind;
   record.last_seen = now;
   return record;
