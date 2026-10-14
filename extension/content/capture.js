@@ -14,8 +14,10 @@
   let scanTimer = null;
   let settleTimer = null;
 
+  // LinkedIn is read on every page (saved jobs, applied jobs, a company page, the feed show jobs and their closed marks);
+  // the other sites only on their jobs pages.
   function onJobsPage() {
-    return parse.onJobsPage(location);
+    return parse.readsPage ? parse.readsPage(location) : parse.onJobsPage(location);
   }
 
   function scan() {
