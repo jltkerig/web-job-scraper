@@ -167,6 +167,7 @@ function addJobs(site, jobs, tabId) {
   const freshKeys = [];
   for (const job of jobs) {
     if (!job || job.site !== site || !job.job_id) continue;
+    if (globalThis.LocationFilter && globalThis.LocationFilter.outsideUS(job.location)) continue; // placed outside the U.S.
     const key = `${site}:${job.job_id}`;
     const old = state.jobs[key];
     const record = merge(old, job, now);
