@@ -38,7 +38,7 @@
   const owned = () => document.documentElement.getAttribute(OWNER) === TOKEN;
 
   function onJobsPage() {
-    return location.pathname.startsWith("/jobs");
+    return /^\/jobs(?:\/|$)/i.test(location.pathname); // the Jobs section; not /jobs-tracker/, which has its own layout
   }
 
   function wanted() {

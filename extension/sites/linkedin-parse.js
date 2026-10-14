@@ -505,7 +505,9 @@
   const COMPANY_JOBS = /^\/company\/[^/]+\/jobs\/?$/i;
 
   function onJobsPage(loc) {
-    return loc.pathname.startsWith("/jobs") || COMPANY_JOBS.test(loc.pathname);
+    // /jobs, /jobs/search/, /jobs/view/ ... but not /jobs-tracker/: that page has its own layout, which the page marks,
+    // the fox strip and the nearest-first order (all for the Jobs section) would only spoil.
+    return /^\/jobs(?:\/|$)/i.test(loc.pathname) || COMPANY_JOBS.test(loc.pathname);
   }
 
   // Where jobs are read: every LinkedIn page. Saved jobs, applied jobs, a company page or the feed show jobs too, with
