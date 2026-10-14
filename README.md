@@ -13,6 +13,7 @@ The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt
 1. You browse LinkedIn or Maryland Workforce Exchange jobs as usual, in Firefox Developer Edition.
 2. The extension saves each job it sees into a file in your Downloads folder, one file per site per day. It saves at most every 5 minutes and again when you close the LinkedIn tab.
    On LinkedIn it reads every page, not only the Jobs section: Saved jobs, Applied jobs, a company page or the feed also show jobs, and a job marked *No longer accepting applications* is saved as closed. The fit markers, distance tags and the fox strip stay on the Jobs pages.
+   Jobs placed outside the U.S. ("Türkiye (Remote)", "London, England, United Kingdom") are not saved; a location with any sign of the U.S., or an unclear one, is kept.
 3. Next time you open Job Finder, the Search page asks: *"Found 1 new capture file… Move them to web-job-scraper\searches and import them?"*
 4. Click **Yes**. Job Finder moves the files, checks each job against your profile, and adds the ones that fit. Click **Not now** and it asks again when new files arrive.
 
