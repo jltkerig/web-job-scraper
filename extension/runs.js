@@ -9,6 +9,10 @@
 const RUN_PAGES = [
   "https://www.linkedin.com/jobs/", // "Top job picks for you"
 ];
+// Your own jobs: the tracker lists the ones you saved (Job Finder puts those on its Apply Queue). Read after the rest.
+const RUN_OWN_PAGES = [
+  "https://www.linkedin.com/jobs-tracker/",
+];
 // LinkedIn's job collections (the lists under "More jobs for you"). Each is read page by page (RUN_LIST_STEP jobs
 // a page) until a page brings no jobs it hadn't seen this run, or RUN_LIST_PAGES pages. A collection LinkedIn
 // doesn't offer you just brings nothing.
@@ -217,6 +221,7 @@ async function startRun(id) {
       }
     }
     for (const page of RUN_COMPANY_PAGES) await readPage(page);
+    for (const page of RUN_OWN_PAGES) await readPage(page);
     // 2. Up to 10 new jobs it doesn't have details for yet, one at a time.
     const toOpen = [...activeRun.fresh].map((key) => state.jobs[key])
       .filter((job) => job && job.level !== "opened" && !job.closed).slice(0, RUN_MAX_OPENED);

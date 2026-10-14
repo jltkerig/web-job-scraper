@@ -47,10 +47,14 @@
     } catch (error) {
       return "other";
     }
+    if (TRACKER_PATH.test(path)) return "tracker";
     if (path.includes("search")) return "search";
     if (path.startsWith("/jobs/collections") || path === "/jobs" || path === "/jobs/") return "recommendation";
     return "other";
   }
+
+  // LinkedIn's job tracker (/jobs-tracker/, which "Saved jobs" opens) lists your own jobs by stage.
+  const TRACKER_PATH = /^\/(?:jobs-tracker|my-items\/saved-jobs)(?:\/|$)/i;
 
   function textOf(value) {
     if (typeof value === "string") return value.trim();
@@ -364,6 +368,64 @@
     return Array.from(found.values());
   }
 
+  // The job tracker's stage filters are check boxes labelled "Saved · 7", "In Progress · 7", "Applied · 51", "Interview · 0",
+  // "Archived"; what the page lists is the ticked stage. Returns the only ticked stage ("saved", "applied", ...), or "" when
+  // none or several are ticked (then a card says nothing about its stage).
+  const TRACKER_STAGES = ["saved", "in progress", "applied", "interview", "archived"];
+
+  function trackerStage(doc) {
+    const ticked = new Set();
+    for (const label of doc.querySelectorAll("label[for]")) {
+      const text = (label.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+      const stage = TRACKER_STAGES.find((name) => text === name || text.startsWith(`${name} `));
+      const box = stage ? doc.getElementById(label.getAttribute("for")) : null;
+      if (box && (box.checked || box.hasAttribute("checked"))) ticked.add(stage);
+    }
+    return ticked.size === 1 ? [...ticked][0] : "";
+  }
+
+  // The tracker's cards. Each job link holds only the title, so a card is the biggest box around the link that holds no
+  // other job and not much else: title, "Company · Place (Remote)", "Posted 2h ago", "Notes", "Add note", "Apply".
+  const TRACKER_NOISE = /^(?:notes?|add note|apply|easy apply|\+\d+)$/i;
+  const TRACKER_CARD_LINES = 12;
+
+  function trackerCards(doc) {
+    const found = new Map();
+    for (const link of doc.querySelectorAll("a[href*='/jobs/view/']")) {
+      const id = idFromUrl(link.getAttribute("href"));
+      if (!id || found.has(id)) continue;
+      let box = link;
+      for (let parent = link.parentElement; parent; parent = parent.parentElement) {
+        const other = Array.from(parent.querySelectorAll("a[href*='/jobs/view/']"))
+          .some((node) => idFromUrl(node.getAttribute("href")) !== id);
+        if (other || lines(parent).length > TRACKER_CARD_LINES) break;
+        box = parent;
+      }
+      const card = lines(box);
+      const body = card.filter((line) => !TRACKER_NOISE.test(line));
+      if (body.length < 2) continue;
+      const job = blank(id);
+      job.title = cleanTitle(body[0]);
+      // A tracker card always has its "Company · Place" line; a link in a message that mentions a job has not.
+      const place = body.findIndex((line, index) => index > 0 && /\s[·•]\s/.test(line));
+      if (place < 1) continue;
+      const [company, ...rest] = body[place].split(/\s[·•]\s/);
+      job.company = company.trim();
+      let where = rest.join(" · ").trim();
+      const arrangement = /\((on-site|onsite|remote|hybrid)\)\s*$/i.exec(where);
+      if (arrangement) {
+        job.work_arrangement = arrangementFromText(arrangement[1]);
+        where = where.slice(0, arrangement.index).trim();
+      }
+      job.location = where;
+      job.posted = body.find((line) => POSTED_LINE.test(line)) || "";
+      job.applied = body.some((line) => APPLIED_LINE.test(line));
+      job.closed = body.some((line) => CLOSED_TEXT.test(line));
+      found.set(id, job);
+    }
+    return Array.from(found.values());
+  }
+
   // The "About the job" heading of the job open on the page, if any.
   function aboutHeading(doc) {
     return Array.from(doc.querySelectorAll("h1, h2, h3"))
@@ -375,6 +437,26 @@
     for (const { job } of cards(doc, pageUrl)) {
       job.work_arrangement = ""; // filled in by finish(), as before
       jobs.set(job.job_id, job);
+    }
+    // On the job tracker, every card is one of your jobs; the only ticked stage says which kind (Saved, Applied).
+    let pagePath = "";
+    try {
+      pagePath = new URL(pageUrl).pathname;
+    } catch (error) {
+      pagePath = "";
+    }
+    if (TRACKER_PATH.test(pagePath)) {
+      const stage = trackerStage(doc);
+      for (const tracked of trackerCards(doc)) {
+        const job = jobs.get(tracked.job_id) || tracked;
+        for (const field of ["title", "company", "location", "work_arrangement", "posted"]) {
+          if (tracked[field]) job[field] = tracked[field];
+        }
+        if (tracked.applied || stage === "applied") job.applied = true;
+        if (tracked.closed) job.closed = true;
+        if (stage === "saved") job.saved = true;
+        jobs.set(job.job_id, job);
+      }
     }
     const detail = detailFromDom(doc, pageUrl);
     if (detail) {

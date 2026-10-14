@@ -146,6 +146,7 @@ function merge(old, job, now) {
   if (job.level === "opened") record.closed = Boolean(job.closed);
   else if (job.closed) record.closed = true; // a list card that says "No longer accepting applications"
   record.applied = Boolean(record.applied || job.applied); // LinkedIn doesn't show "Applied" everywhere, so keep it
+  if (job.saved) record.saved = true; // seen on your Saved jobs; only written when true, so other jobs' records don't change
   if (!record.page_kind || (record.page_kind === "other" && job.page_kind !== "other")) record.page_kind = job.page_kind;
   record.last_seen = now;
   return record;
@@ -485,7 +486,7 @@ async function saveDebug(site, tabId) {
   const tab = tabId !== undefined ? { id: tabId } : (await browser.tabs.query({ active: true, currentWindow: true }))[0];
   // From the panel's button: the site is whichever job site the open tab is on.
   site = site || (tab && tab.url && siteForUrl(tab.url));
-  if (!site) throw fail("Open a LinkedIn, Maryland Workforce Exchange, Indeed or USAJOBS jobs page, then try again.");
+  if (!site) return saveOtherPage(tab, fail);
   let page = null;
   try {
     page = tab ? await browser.tabs.sendMessage(tab.id, { type: "get-page-html" }) : null;
@@ -498,6 +499,31 @@ async function saveDebug(site, tabId) {
     await download(`${folder}/page.html`, page.html, "text/html");
     const responses = recentResponses.get(tab.id) || [];
     await download(`${folder}/responses.json`, JSON.stringify({ url: page.url, responses }, null, 2), "application/json");
+  } catch (error) {
+    throw fail(`Could not save the page to your downloads folder: ${error.message || error}`);
+  }
+  return folder;
+}
+
+// Any other web page (Google, or one you stumble upon): a copy for fixing, taken only now, in the tab you pressed the
+// button on (the extension's "activeTab" permission covers just that tab, just for this click). Returns the folder.
+async function saveOtherPage(tab, fail) {
+  if (!tab || tab.id === undefined || !/^https?:\/\//i.test(tab.url || "")) {
+    throw fail("Open the web page you want to save (a page starting with http or https), then press the button again.");
+  }
+  let page = null;
+  try {
+    const [result] = await browser.tabs.executeScript(tab.id, { file: "/content/page-copy.js" });
+    page = result;
+  } catch (error) {
+    throw fail("Firefox wouldn't let the extension read this page. Click the extension's button while the page is open, then try again.");
+  }
+  if (!page || typeof page.html !== "string") throw fail("The page gave nothing back to save. Try again once it has finished loading.");
+  const host = (new URL(tab.url).hostname || "page").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").slice(0, 40) || "page";
+  const folder = `${ROOT}/debug/${host}-${stamp()}`;
+  try {
+    await download(`${folder}/page.html`, page.html, "text/html");
+    await download(`${folder}/responses.json`, JSON.stringify({ url: page.url, responses: [] }, null, 2), "application/json");
   } catch (error) {
     throw fail(`Could not save the page to your downloads folder: ${error.message || error}`);
   }
