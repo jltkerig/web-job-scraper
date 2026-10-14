@@ -277,6 +277,12 @@
     job.posted = header.find((line) => POSTED_LINE.test(line)) || "";
     job.applied = header.some((line) => APPLIED_LINE.test(line) || APPLIED_TEXT.test(line));
     job.closed = header.some((line) => CLOSED_TEXT.test(line));
+    if (!job.closed && /\/jobs\/view\//.test(pageUrl)) {
+      // A closed job's page may not follow the usual header (no "About the job" section, no place line), so the notice is
+      // looked for in the first lines of the page itself. Only on a job's own page: a list's cards say it about other jobs.
+      const main = doc.querySelector("main") || doc.body;
+      job.closed = Boolean(main) && lines(main).slice(0, 80).some((line) => CLOSED_TEXT.test(line));
+    }
     return job.title || job.description ? job : null;
   }
 
@@ -285,6 +291,12 @@
   // Each card as { element, job }: element is the box the card's text came from (used to mark good fits).
   function cards(doc, pageUrl) {
     const found = new Map();
+    let outsideJobs = false;
+    try {
+      outsideJobs = !onJobsPage(new URL(pageUrl));
+    } catch (error) {
+      outsideJobs = false;
+    }
     // The 2026 search pages: each card is a clickable block tagged job-card-component-ref-<job id> and holds no link.
     // Its lines: an accessible title ("Selected, Graphic Designer" / "... (Verified job)"), the title, company,
     // "Baltimore, MD (On-site)", pay and perks. The outermost block with the tag is the card.
@@ -333,6 +345,10 @@
       // A lone "On-site" link (the work-place tag on a job's own page) is not a card, and neither is a company card
       // ("201-500 employees", "12K followers").
       if (card.length < 2 || WORKPLACE_LINE.test(card[0]) || card.some((line) => COMPANY_CARD_LINE.test(line))) continue;
+      // Outside the Jobs section (saved jobs, a feed, messages), a link inside some other box is only a card when it
+      // reads like one: a place line, or a closed / applied mark. A message that mentions a job is not a job.
+      if (outsideJobs && locationIndex(card, 2) < 0
+          && !card.some((line) => CLOSED_TEXT.test(line) || APPLIED_LINE.test(line))) continue;
       const job = blank(id);
       job.title = cleanTitle(card[0]);
       job.company = card[1];
@@ -410,13 +426,20 @@
     return loc.pathname.startsWith("/jobs") || COMPANY_JOBS.test(loc.pathname);
   }
 
+  // Where jobs are read: every LinkedIn page. Saved jobs, applied jobs, a company page or the feed show jobs too, with
+  // their "No longer accepting applications" marks. The page marks, the fox strip and the nearest-first order stay on
+  // the Jobs pages (onJobsPage).
+  function readsPage(loc) {
+    return !loc.hostname || /(^|\.)linkedin\.com$/i.test(loc.hostname);
+  }
+
   // The job open on this page: its own page, or the details pane next to a list (?currentJobId=).
   function detailId(pageUrl) {
     return idFromUrl(pageUrl);
   }
 
   root.LinkedInParse = {
-    SITE, NAME: "LinkedIn", jobUrl, idFromUrl, pageKind, fromVoyager, fromDom, fromEmbedded, expectsJobs, onJobsPage,
+    SITE, NAME: "LinkedIn", jobUrl, idFromUrl, pageKind, fromVoyager, fromDom, fromEmbedded, expectsJobs, onJobsPage, readsPage,
     detailId, CLOSED_TEXT, cards, aboutHeading,
   };
   root.CaptureParse = root.LinkedInParse; // the reader content/capture.js uses on LinkedIn pages

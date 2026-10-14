@@ -88,3 +88,38 @@ test("LinkedIn's own notice among the header lines is not saved as the title or 
   assert.strictEqual(job.company, "Park Group Solutions");
   assert.strictEqual(job.location, "United States (Remote)");
 });
+
+test("a closed job's own page is read as closed even without the usual header", () => {
+  const url = "https://www.linkedin.com/jobs/view/4475979428/";
+  const html = `<!doctype html><html><head><title>Front End Web Applications Developer (Mid-Level) (5664) | RemoteHunter | LinkedIn</title></head>
+    <body><main><div><p>RemoteHunter</p><p>Front End Web Applications Developer (Mid-Level) (5664)</p>
+    <p class="notice">No longer accepting applications</p></div>
+    <section><h2>More jobs</h2><a href="https://www.linkedin.com/jobs/view/4400000009/"><p>Web Designer</p><p>Acme</p></a></section></main></body></html>`;
+  const job = read(html, url)["4475979428"];
+  assert.strictEqual(job.closed, true);
+  assert.strictEqual(job.title, "Front End Web Applications Developer (Mid-Level) (5664)");
+  assert.strictEqual(job.company, "RemoteHunter");
+});
+
+test("an open job's own page is not read as closed because of its list", () => {
+  const url = "https://www.linkedin.com/jobs/view/4455363386/";
+  assert.strictEqual(read(JOB_PAGE, url)["4455363386"].closed, false);
+});
+
+test("jobs are read on any LinkedIn page, and a message that mentions a job is not a job", () => {
+  assert.strictEqual(parse.readsPage({ hostname: "www.linkedin.com", pathname: "/feed/" }), true);
+  assert.strictEqual(parse.readsPage({ hostname: "www.linkedin.com", pathname: "/my-items/saved-jobs/" }), true);
+  assert.strictEqual(parse.readsPage({ hostname: "www.indeed.com", pathname: "/jobs" }), false);
+  assert.strictEqual(parse.onJobsPage({ pathname: "/feed/" }), false); // the page marks stay on the Jobs pages
+  const url = "https://www.linkedin.com/my-items/saved-jobs/";
+  const html = `<main><ul>
+    <li><a href="https://www.linkedin.com/jobs/view/4400000051/"><p>Web Designer</p><p>Acme Health</p><p>Baltimore, MD</p><p>No longer accepting applications</p></a></li>
+    <li><a href="https://www.linkedin.com/jobs/view/4400000052/"><p>Front End Developer</p><p>Beta Co</p><p>Bel Air, MD (Hybrid)</p></a></li>
+    <li class="message"><p>Pat Example</p><p>Thought of you: <a href="https://www.linkedin.com/jobs/view/4400000053/">this job</a></p></li>
+  </ul></main>`;
+  const jobs = read(html, url);
+  assert.deepStrictEqual(Object.keys(jobs).sort(), ["4400000051", "4400000052"]);
+  assert.strictEqual(jobs["4400000051"].closed, true);
+  assert.strictEqual(jobs["4400000051"].company, "Acme Health");
+  assert.strictEqual(jobs["4400000052"].closed, false);
+});
