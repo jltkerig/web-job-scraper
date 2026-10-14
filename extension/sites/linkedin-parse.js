@@ -212,6 +212,15 @@
     return String(line || "").replace(/\s*\(verified job\)\s*$/i, "").replace(/\s+with verification$/i, "").trim();
   }
 
+  // Some cards run company and place together on one line: "Evans & Chambers Technology · Columbia, MD". The company is
+  // the part before the dot, and the place fills in a location the card didn't give separately.
+  function splitCompanyPlace(job) {
+    const match = /^(.+?)\s+[·•]\s+([^·•]+?,\s*[A-Z]{2}(?![A-Za-z])[^·•]*)$/.exec(String(job.company || "").trim());
+    if (!match) return;
+    job.company = match[1].trim();
+    if (!job.location) job.location = match[2].trim();
+  }
+
   // The first line that looks like a place, preferring one followed by LinkedIn's "·" separator.
   function locationIndex(list, from) {
     const places = [];
@@ -288,6 +297,7 @@
       job.company = card[1];
       const at = locationIndex(card, 2);
       job.location = at >= 0 ? card[at] : "";
+      splitCompanyPlace(job);
       job.salary = card.find((line) => PAY_TEXT.test(line)) || "";
       job.applied = card.some((line) => APPLIED_LINE.test(line));
       job.closed = card.some((line) => CLOSED_TEXT.test(line));
@@ -325,6 +335,7 @@
       job.company = card[1];
       const at = locationIndex(card, 2);
       job.location = at >= 0 ? card[at] : "";
+      splitCompanyPlace(job);
       job.salary = card.find((line) => PAY_TEXT.test(line)) || "";
       job.applied = card.some((line) => APPLIED_LINE.test(line));
       job.closed = card.some((line) => CLOSED_TEXT.test(line));

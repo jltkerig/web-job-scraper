@@ -408,3 +408,17 @@ test("the notice asks again by itself and goes away once Job Finder answers", as
   assert.ok(window.document.querySelectorAll("wjs-fit-tag[data-fit]").length >= 1);
   window.close();
 });
+
+test("a card with company and place on one line is split into company and location", () => {
+  const parse = globalThis.LinkedInParse;
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4400000041";
+  const html = `<main>
+    <a href="${url}"><p>Front End Developer</p><p>Evans &amp; Chambers Technology · Columbia, MD</p></a>
+    <a href="https://www.linkedin.com/jobs/search-results/?currentJobId=4400000042"><p>Web Designer</p><p>Real Co</p><p>Bel Air, MD</p></a>
+  </main>`;
+  const jobs = Object.fromEntries(parse.cards(new JSDOM(html, { url }).window.document, url).map(({ job }) => [job.job_id, job]));
+  assert.strictEqual(jobs["4400000041"].company, "Evans & Chambers Technology");
+  assert.strictEqual(jobs["4400000041"].location, "Columbia, MD");
+  assert.strictEqual(jobs["4400000042"].company, "Real Co");
+  assert.strictEqual(jobs["4400000042"].location, "Bel Air, MD");
+});
