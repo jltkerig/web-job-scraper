@@ -67,6 +67,16 @@ test("the saved-jobs address is read the same way", () => {
   assert.ok(jobs.every((job) => job.saved === true));
 });
 
+test("the tracker is not a Jobs page: no page marks, fox strip or reordering there", () => {
+  assert.strictEqual(parse.onJobsPage({ pathname: "/jobs-tracker/" }), false);
+  assert.strictEqual(parse.onJobsPage({ pathname: "/jobs-tracker" }), false);
+  assert.strictEqual(parse.onJobsPage({ pathname: "/jobs/" }), true);
+  assert.strictEqual(parse.onJobsPage({ pathname: "/jobs" }), true);
+  assert.strictEqual(parse.onJobsPage({ pathname: "/jobs/search/" }), true);
+  assert.strictEqual(parse.onJobsPage({ pathname: "/jobs/view/4469068292/" }), true);
+  assert.strictEqual(parse.readsPage({ hostname: "www.linkedin.com", pathname: "/jobs-tracker/" }), true); // still read
+});
+
 test("a job page is never marked saved", () => {
   const url = "https://www.linkedin.com/jobs/view/4469068292/";
   const jobs = read(page("saved", TWO), url);
