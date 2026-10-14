@@ -271,7 +271,10 @@
         + (result.missing.length ? ` · Also asks for: ${result.missing.join(", ")}` : "");
     if (old && old.dataset.label === label) return;
     old?.remove();
-    const host = tag(label, "display: inline-block; font-size: 12px; padding: 3px 10px; white-space: normal;");
+    // A long list of skills wraps over several lines: a rounded-pill shape (999px) would cut the corners off and the
+    // white text there would vanish, so this one is a plain rounded box.
+    const host = tag(label, "display: block; box-sizing: border-box; max-width: 100%; font-size: 12px; font-weight: 600; "
+      + "line-height: 1.5; padding: 8px 12px; border-radius: 10px; white-space: normal;");
     host.dataset.detail = "1";
     host.dataset.label = label;
     host.style.cssText = "position: static; display: block; margin: 0 0 8px;";
