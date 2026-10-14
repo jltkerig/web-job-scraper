@@ -206,6 +206,9 @@
   const WORKPLACE_LINE = /^(on-site|onsite|remote|hybrid)$/i;
   const COMPANY_CARD_LINE = /\b[\d,.+-]+[KkMm]?\s+(?:employees|followers)\b/;
   const POSTED_LINE =/^(?:re)?posted\b|^\d+\s+\w+\s+ago$/i;
+  // LinkedIn's own notices sit among the lines at the top of a job ("Your resume was downloaded", "Your application was
+  // viewed by ..."); in a title / company slot they would be saved as the job.
+  const NOTICE_LINE = /^your$|\b(?:resume|application|profile)\b.*\bwas\s+(?:downloaded|viewed|sent|submitted)\b|^resume was\b|^application was\b/i;
 
   // LinkedIn adds badges to titles: "Web Designer (Verified job)", "Web Designer with verification".
   function cleanTitle(line) {
@@ -251,7 +254,7 @@
       for (let depth = 0; scope && depth < 20; depth += 1, scope = scope.parentElement) {
         const all = lines(scope, { unique: false });
         const stop = all.findIndex((line) => /^about the job$/i.test(line));
-        const before = stop >= 0 ? all.slice(0, stop) : all;
+        const before = (stop >= 0 ? all.slice(0, stop) : all).filter((line) => !NOTICE_LINE.test(line));
         const at = locationIndex(before, 2);
         if (at >= 2) {
           job.location = before[at];

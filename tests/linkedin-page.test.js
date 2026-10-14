@@ -72,3 +72,19 @@ test("on a search page the open job comes from the details pane", () => {
   assert.strictEqual(jobs["4455363386"].company, "Acme Health");
   assert.strictEqual(jobs["4455363386"].page_kind, "search");
 });
+
+test("LinkedIn's own notice among the header lines is not saved as the title or company", () => {
+  const url = "https://www.linkedin.com/jobs/collections/recommended/?currentJobId=4477824442";
+  const html = `<!doctype html><html><head><title>Jobs | LinkedIn</title></head><body><main><div class="a"><div class="b">
+    <div><a href="/company/pgs/"><p>Park Group Solutions</p></a></div>
+    <div><p>Web Developer / Production Specialist (Automotive)</p></div>
+    <div><p>resume was downloaded</p><p>Your</p></div>
+    <div><span>United States (Remote)</span><span>·</span><span>3 days ago</span></div>
+    <div class="c"><h2>About the job</h2><p>${"Park Group Solutions is a full-service advertising agency. ".repeat(6)}</p></div>
+  </div></div></main></body></html>`;
+  const jobs = read(html, url);
+  const job = jobs["4477824442"];
+  assert.strictEqual(job.title, "Web Developer / Production Specialist (Automotive)");
+  assert.strictEqual(job.company, "Park Group Solutions");
+  assert.strictEqual(job.location, "United States (Remote)");
+});
