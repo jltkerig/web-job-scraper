@@ -102,6 +102,7 @@ test("a run reads the recommended pages and the watched companies' pages, opens 
   assert.strictEqual(context.visited.filter((url) => url === "https://www.linkedin.com/jobs/collections/based-on-preferences/").length, 1);
   assert.strictEqual(context.visited.filter((url) => url === "https://www.linkedin.com/jobs/collections/recommended/").length, 1);
   assert.ok(context.visited.includes("https://www.linkedin.com/company/flywheel-digital/jobs/"));
+  assert.ok(context.visited.includes("https://www.linkedin.com/jobs-tracker/")); // your saved jobs are read too
   assert.strictEqual(tabs.size, 0, "the run's tab was left open");
   assert.strictEqual(context.isRunTab(1), false);
 });
