@@ -111,6 +111,10 @@ async function load() {
   state.lastSave = saved.lastSave || {};
   state.lastWritten = saved.lastWritten || {};
   state.broken = saved.broken || {};
+  // Maryland jobs saved before 0.16.2 carry the fit chart's sentence as their employer: forget them (they are read again, with the real employer, when the page is next opened).
+  for (const [key, job] of Object.entries(state.jobs)) {
+    if (job.site === "mwe" && self.MweParse && self.MweParse.badCompany(job.company)) delete state.jobs[key];
+  }
   const cutoff = Date.now() - KEEP_DAYS * 24 * 60 * 60 * 1000;
   for (const [key, job] of Object.entries(state.jobs)) {
     if (Date.parse(job.last_seen) < cutoff) delete state.jobs[key];

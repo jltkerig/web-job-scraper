@@ -109,3 +109,11 @@ test("the search form page is not a jobs page, the results page is", () => {
   assert.strictEqual(parse.expectsJobs("https://mwejobs.maryland.gov/vosnet/JobBanks/JobSearchCriteriaQuick.aspx?nf=1&"), false);
   assert.strictEqual(parse.expectsJobs("https://mwejobs.maryland.gov/vosnet/jobbanks/joblist.aspx?enc=91Ai"), true);
 });
+
+test("the fit chart's sentence is recognised as a bad employer, a real name is not", () => {
+  const parse = globalThis.MweParse;
+  assert.ok(parse.badCompany("This chart is used to compare your background against this job to help to determine if you would be a good fit."));
+  assert.ok(parse.badCompany("You match null% of the General Job Requirements."));
+  assert.ok(!parse.badCompany("Maryland Institute College of Art"));
+  assert.ok(!parse.badCompany(""));
+});
