@@ -123,13 +123,13 @@ button:hover { border-color: var(--accent); }
    panel wider than it is. */
 .run-add { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .run-add input { flex: 1 1 100%; min-width: 0; max-width: 100%; box-sizing: border-box; font: inherit; }
-#run-list { list-style: none; margin: 6px 0 0; padding: 0; }
-#run-list li { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-top: 1px solid var(--line); }
-#run-list .when { flex: 1; min-width: 0; }
+.run-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.run-list li { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-top: 1px solid var(--line); }
+.run-list .when { flex: 1; min-width: 0; }
 /* Long words (file paths in messages) wrap instead of widening the panel. */
-#message, .warning, .hint, #run-list .detail, #needs-list li { overflow-wrap: anywhere; }
-#run-list .detail { display: block; color: var(--muted); font-size: 12px; }
-#run-list button { padding: 0 6px; }
+#message, .warning, .hint, .run-list .detail, #needs-list li { overflow-wrap: anywhere; }
+.run-list .detail { display: block; color: var(--muted); font-size: 12px; }
+.run-list button { padding: 0 6px; }
 .tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 9px; white-space: nowrap; }
 .tag.scheduled { background: #e8eefc; color: #2f4fa8; }
 .tag.running { background: #fff3cd; color: #8a6100; }
@@ -161,10 +161,10 @@ main > section label input[type="checkbox"] { margin: 2px 0 0; flex: none; }
 .site { padding: 10px 12px; margin-bottom: 10px; }
 .counts { margin-top: 6px; }
 .run-add { margin-top: 10px; }
-#run-list, #needs-list { margin-top: 10px; }
-#run-list li, #needs-list li { padding: 8px 0; }
-#run-list li { border-top: 0; border-bottom: 1px solid var(--line); }
-#run-list li:last-child, #needs-list li:last-child { border-bottom: 0; }
+.run-list, #needs-list { margin-top: 10px; }
+.run-list li, #needs-list li { padding: 8px 0; }
+.run-list li { border-top: 0; border-bottom: 1px solid var(--line); }
+.run-list li:last-child, #needs-list li:last-child { border-bottom: 0; }
 .hidden-companies ul { margin: 0 0 10px; }
 .hidden-companies li { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .hidden-companies li:last-child { border-bottom: 0; }

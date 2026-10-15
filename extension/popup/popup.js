@@ -93,8 +93,10 @@ function show(result) {
         el("div", { className: "hint", textContent: "Your jobs are kept; it tries again at the next save, or click Save now." }),
       ]));
     }
+    card.append(runBlock(site));
     sitesBox.append(card);
   }
+  showRuns(result);
 
   needsCount.textContent = result.needsLookTotal ? `(${result.needsLookTotal})` : "";
   document.getElementById("clear-needs").hidden = !result.needsLookTotal;
@@ -121,12 +123,16 @@ document.getElementById("save-now").addEventListener("click", () => {
 
 document.getElementById("save-page").addEventListener("click", () => savePage(null)); // the site of the open tab
 
-// ---------- scheduled LinkedIn runs ----------
+// ---------- runs, under each website's name ----------
 
-const runList = document.getElementById("run-list");
-const runWhen = document.getElementById("run-when");
-const runAlert = document.getElementById("run-alert");
 const TAGS = { scheduled: "Scheduled", running: "Running", done: "Done", stopped: "Stopped", missed: "Missed" };
+const RUN_HINTS = {
+  linkedin: "At the time you pick, Firefox opens LinkedIn's recommended jobs in a background tab, collects them, opens up to 10 new ones for details, then closes the tab. Firefox must be open.",
+  mwe: "Search the Maryland Workforce Exchange yourself first (your search terms), and leave that results tab open. A run then clicks the page numbers 2, 3, 4… one at a time with a pause between each, while the jobs are saved. It uses your tab and doesn't close it.",
+  usajobs: "Firefox opens USAJOBS searches for your Job Finder titles in Maryland (a few result pages each) in a background tab, collects the jobs, then closes the tab.",
+  jobaps: "Reads the State of Maryland's job feed once (one request, nothing is browsed). This also happens by itself every few hours.",
+};
+const runTimes = {}; // the date and time typed into each site's box, kept while the panel redraws
 
 function localInputValue(date) {
   const pad = (number) => String(number).padStart(2, "0");
@@ -134,43 +140,11 @@ function localInputValue(date) {
 }
 
 // Tomorrow at 6:10 AM, as a starting suggestion.
-const suggestion = new Date();
-suggestion.setDate(suggestion.getDate() + 1);
-suggestion.setHours(6, 10, 0, 0);
-runWhen.value = localInputValue(suggestion);
-
-function showRuns(result) {
-  runAlert.hidden = !result.runAlert;
-  runAlert.replaceChildren();
-  if (result.runAlert) {
-    const dismiss = el("button", { type: "button", textContent: "Dismiss" });
-    dismiss.addEventListener("click", () => send({ type: "clear-run-alert" }).then(showAll));
-    runAlert.append(el("div", { textContent: `[${result.runAlert.code}] ${result.runAlert.message}` }), dismiss);
-  }
-  runList.replaceChildren();
-  if (!result.runs.length) runList.append(el("li", { className: "hint", textContent: "No runs scheduled." }));
-  for (const run of result.runs) {
-    const when = new Date(run.when).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-    let detail = run.message || "";
-    if (run.status === "running") detail = `${run.opened || 0} opened so far`;
-    if (run.status === "stopped" && run.code) detail = `[${run.code}] ${detail}`;
-    if (run.late && run.status !== "scheduled") detail = `ran late (Firefox was closed) · ${detail}`;
-    const item = el("li", {}, [
-      el("span", { className: `tag ${run.status}`, textContent: TAGS[run.status] || run.status }),
-      el("span", { className: "when" }, [when, el("span", { className: "detail", textContent: detail })]),
-    ]);
-    if (run.status !== "running") {
-      const remove = el("button", { type: "button", textContent: "×", title: run.status === "scheduled" ? "Cancel this run" : "Remove from the list" });
-      remove.addEventListener("click", () => send({ type: "remove-run", id: run.id }).then(showAll));
-      item.append(remove);
-    }
-    runList.append(item);
-  }
-}
-
-function showAll(result) {
-  show(result);
-  showRuns(result);
+function suggestedTime() {
+  const suggestion = new Date();
+  suggestion.setDate(suggestion.getDate() + 1);
+  suggestion.setHours(6, 10, 0, 0);
+  return localInputValue(suggestion);
 }
 
 function runAction(payload) {
@@ -178,14 +152,74 @@ function runAction(payload) {
   send(payload).then(showAll).catch((error) => { message.textContent = String(error.message || error); });
 }
 
-document.getElementById("run-add").addEventListener("click", () => {
-  if (!runWhen.value) {
-    message.textContent = "Pick a date and time first.";
-    return;
+// The buttons and list for one website's runs, filled in by showRuns.
+function runBlock(site) {
+  const when = el("input", { type: "datetime-local" });
+  when.setAttribute("aria-label", "Date and time for a run");
+  when.value = runTimes[site] || suggestedTime();
+  when.addEventListener("input", () => { runTimes[site] = when.value; });
+  const add = el("button", { type: "button", textContent: "Add" });
+  add.addEventListener("click", () => {
+    if (!when.value) {
+      message.textContent = "Pick a date and time first.";
+      return;
+    }
+    runAction({ type: "add-run", site, when: new Date(when.value).toISOString() });
+  });
+  const now = el("button", { type: "button", textContent: "Run now", title: "Start a run now" });
+  now.addEventListener("click", () => runAction({ type: "run-now", site }));
+  const alertBox = el("div", { className: "run-alert warning", hidden: true });
+  const list = el("ul", { className: "run-list" });
+  alertBox.dataset.site = site;
+  list.dataset.site = site;
+  return el("div", { className: "runs" }, [
+    el("div", { className: "hint", textContent: RUN_HINTS[site] || "" }),
+    alertBox,
+    el("div", { className: "run-add" }, [when, add, now]),
+    list,
+  ]);
+}
+
+// Fills every site's run list and alert; also called every few seconds while the panel is open.
+function showRuns(result) {
+  for (const alertBox of document.querySelectorAll(".run-alert")) {
+    const alert = result.runAlert && (result.runAlert.site || "linkedin") === alertBox.dataset.site ? result.runAlert : null;
+    alertBox.hidden = !alert;
+    alertBox.replaceChildren();
+    if (alert) {
+      const dismiss = el("button", { type: "button", textContent: "Dismiss" });
+      dismiss.addEventListener("click", () => send({ type: "clear-run-alert" }).then(showAll));
+      alertBox.append(el("div", { textContent: `[${alert.code}] ${alert.message}` }), dismiss);
+    }
   }
-  runAction({ type: "add-run", when: new Date(runWhen.value).toISOString() });
-});
-document.getElementById("run-now").addEventListener("click", () => runAction({ type: "run-now" }));
+  for (const list of document.querySelectorAll(".run-list")) {
+    const mine = result.runs.filter((run) => (run.site || "linkedin") === list.dataset.site);
+    list.replaceChildren();
+    if (!mine.length) list.append(el("li", { className: "hint", textContent: "No runs scheduled." }));
+    for (const run of mine) {
+      const when = new Date(run.when).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+      let detail = run.message || "";
+      if (run.status === "running") detail = run.site === "mwe" ? `${run.pages || 0} pages read so far` : `${run.opened || 0} opened so far`;
+      if (run.status === "stopped" && run.code) detail = `[${run.code}] ${detail}`;
+      if (run.late && run.status !== "scheduled") detail = `ran late (Firefox was closed) · ${detail}`;
+      const item = el("li", {}, [
+        el("span", { className: `tag ${run.status}`, textContent: TAGS[run.status] || run.status }),
+        el("span", { className: "when" }, [when, el("span", { className: "detail", textContent: detail })]),
+      ]);
+      if (run.status !== "running") {
+        const remove = el("button", { type: "button", textContent: "×", title: run.status === "scheduled" ? "Cancel this run" : "Remove from the list" });
+        remove.addEventListener("click", () => send({ type: "remove-run", id: run.id }).then(showAll));
+        item.append(remove);
+      }
+      list.append(item);
+    }
+  }
+}
+
+function showAll(result) {
+  show(result);
+}
+
 // While the panel is open, keep the tags up to date (a run takes a few minutes).
 setInterval(() => send({ type: "popup-state" }).then(showRuns).catch(() => {}), 3000);
 

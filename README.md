@@ -69,7 +69,14 @@ The number on the icon is how many new jobs were captured today. **Clear count**
 
 ## Scheduled LinkedIn runs
 
-Pick a date and time in the panel's **Scheduled LinkedIn runs** section and click **Add**. Only one-off runs for now. **Run now** starts one straight away. At that time:
+**Runs on every site (0.17.0).** Each website in the panel's Websites box has its own **Run now**, a date and time with **Add**, and its list of runs right under its name:
+
+- **LinkedIn:** as described below.
+- **Maryland Workforce Exchange:** search the site yourself first (set your search terms) and leave the results tab open. A run then clicks the site's own page numbers 2, 3, 4... one at a time, waiting 25-60 seconds on each (at most 15 pages), while the jobs are saved as usual. It uses your tab and never closes it, and it never opens Maryland pages by itself (the site's robots.txt asks automated visitors to stay away, so this is you browsing, paced). A security check stops it and blocks Maryland runs for the day.
+- **USAJOBS:** opens searches for your first 5 Job Finder titles in Maryland (3 result pages each) in a background tab, then closes it. Needs your titles loaded (Check now under Fit markers).
+- **State of Maryland jobs:** reads the job feed once; no tab.
+
+The rest of this section describes LinkedIn runs. Pick a date and time under **LinkedIn** and click **Add**. Only one-off runs for now. **Run now** starts one straight away. At that time:
 
 1. Firefox opens a **background tab** with LinkedIn's Jobs home ("Top job picks for you") and then every LinkedIn job collection (Recommended, Top applicant, Still hiring, Easy Apply, Remote, Hybrid and more; `RUN_COLLECTIONS`), each up to 3 pages deep until a page brings nothing new, then the LinkedIn jobs page of each company you watch (Flywheel for now; add more to `RUN_COMPANY_PAGES` in `extension
 uns.js`). It reads page 1 of each, the same way it reads pages you browse.
