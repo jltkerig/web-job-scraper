@@ -10,8 +10,9 @@ const SITES = {
   // The Maryland Workforce Exchange allows no automated visitors, so only pages you open are read.
   mwe: { name: "Maryland Workforce Exchange", parse: globalThis.MweParse, api: null,
     hosts: ["mwejobs.maryland.gov", "www.mwejobs.maryland.gov"] },
-  // Not read yet: on this one only "Save this page for fixing" works, to collect their page layouts (sites/sample-only.js).
-  indeed: { name: "Indeed", parse: globalThis.SampleParse, api: null, sampleOnly: true,
+  // Indeed doesn't allow automated visitors either, so only pages you open are read (its job data sits in script variables
+  // on the page, see sites/indeed-parse.js).
+  indeed: { name: "Indeed", parse: globalThis.IndeedParse, api: null,
     hosts: ["www.indeed.com", "indeed.com"] },
   // Like the Maryland exchange, USAJOBS blocks automated visitors, so only pages you open are read.
   usajobs: { name: "USAJOBS", parse: globalThis.UsajobsParse, api: null,
@@ -51,7 +52,7 @@ const ERRORS = {
 
 const state = {
   jobs: {}, // "site:job_id" -> record
-  settings: { enabled: { linkedin: true, mwe: true, jobaps: true } },
+  settings: { enabled: { linkedin: true, mwe: true, indeed: true, jobaps: true } },
   dirty: new Set(), // "site|yyyy-mm-dd" files that need writing
   lastSave: {}, // site -> ISO time
   lastWritten: {}, // "site|yyyy-mm-dd" -> ISO time of the last file written: the next file holds what changed after it
@@ -104,7 +105,7 @@ async function load() {
   state.autoSavedDay = saved.autoSavedDay || {};
   state.jobs = saved.jobs || {};
   state.settings = { ...state.settings, ...(saved.settings || {}) };
-  state.settings.enabled = { linkedin: true, mwe: true, jobaps: true, ...(state.settings.enabled || {}) };
+  state.settings.enabled = { linkedin: true, mwe: true, indeed: true, jobaps: true, ...(state.settings.enabled || {}) };
   const pet = state.settings.pet || {};
   state.settings.pet = { ...PET_DEFAULTS, ...pet, sites: { ...PET_DEFAULTS.sites, ...(pet.sites || {}) } };
   state.dirty = new Set(saved.dirty || []);

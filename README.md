@@ -4,7 +4,7 @@ A Firefox extension that saves the jobs you look at on LinkedIn and the Maryland
 
 It only reads the pages you open yourself. It never clicks, scrolls, or opens anything on its own.
 
-**Sites:** LinkedIn, the Maryland Workforce Exchange (mwejobs.maryland.gov) and USAJOBS (search results you open; job pages are read loosely until a real one has been seen). Indeed and Glassdoor come next.
+**Sites:** LinkedIn, Indeed, the Maryland Workforce Exchange (mwejobs.maryland.gov) and USAJOBS (search results you open; job pages are read loosely until a real one has been seen). Glassdoor comes next.
 
 The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt disallows them), so Job Finder never searches it itself. The extension only reads MWE job pages and search results you open yourself. Many of the same jobs also reach Job Finder through the National Labor Exchange (usnlx.com), which Job Finder searches.
 
@@ -48,9 +48,19 @@ So you know which jobs are worth opening:
 
 The extension uses a copy of your Job Finder profile: titles, skills, work preferences, blocked companies and your home's map point. **Job Finder on your computer is asked for it automatically every day** (while Firefox is open; if Job Finder isn't running it tries again every hour), so changes to your titles, skills or Home ZIP arrive on their own. **Check now** in the panel asks right away, and the checkbox beside it turns the daily check off. For Job Finder's web version, or when Job Finder isn't running, click **Export for Web Job Scraper** on its Dashboard, then **Load a file** in the panel and choose the file; export and load it again after changing your profile. Distances and drive times are worked out inside the extension from the bundled U.S. Census places table (`extension/data/us-places.json`), the same estimate Job Finder uses. Nothing is sent to LinkedIn or anywhere else.
 
-## Indeed and USAJOBS (collecting page layouts first)
+## Indeed (read from the pages you open)
 
-The extension is also loaded on Indeed and USAJOBS, but it does not read their jobs yet: each site's page layout has to be seen first. Open a search results page or a job page there, click **Save this page for fixing** in the panel, and the page is saved to `web-job-scraper\debug\` in your downloads folder. A reader can then be written from those files. Until then nothing from these sites is captured, and they don't appear in the panel's site list.
+Indeed doesn't allow automated visitors (its robots.txt disallows them, and it blocks automated requests), so Job Finder never searches it itself and the extension never visits it for you. It reads only the Indeed pages **you** open in Firefox: search results and a job's own page.
+
+Reader: `extension/sites/indeed-parse.js`, tests: `tests/indeed-parse.test.js`. Indeed keeps its jobs in script variables inside the page (the "hidden web data": the same data as the visible cards, before it is drawn as HTML):
+- `window.mosaic.providerData["mosaic-provider-jobcards"]`: the search results. Each card has `jobkey` (the job's id), `displayTitle`, `company`, `formattedLocation`, `salarySnippet.text` (the pay as shown, such as "$35,000 - $45,000 a year" or "$50 - $100 an hour"), `pubDate`, `remoteLocation` and `expired`.
+- `window._initialData`: the open job's header and its full description (`sanitizedJobDescription`), which makes it an "opened" job.
+
+The variables are cut out with a bracket matcher that skips text inside strings, not a greedy pattern, so a brace or `};` inside a job's text cannot cut a job off. The visible cards (a `data-jk` link with the company, place and pay beside it) are the fallback when the variables are missing. Pay comes only from the card's own text: Indeed's `extractedSalary` is an estimate (a per-mile driver card becomes a yearly range), so it is never used on its own. If Indeed changes its page, click **Save this page for fixing** in the panel and a copy is saved to `web-job-scraper\debug\` in your downloads folder (scripts removed), which is what the reader is fixed against.
+
+## USAJOBS
+
+The extension is also loaded on USAJOBS and reads the search results you open; job pages are read loosely until a real one has been seen. If a page isn't read, click **Save this page for fixing** in the panel.
 
 ## Page samples (saved automatically)
 

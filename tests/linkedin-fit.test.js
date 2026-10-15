@@ -99,19 +99,18 @@ test("a company's own jobs page counts as a jobs page, so its jobs are captured"
   assert.strictEqual(jobs[0].company, "Flywheel");
 });
 
-test("Indeed is sample-only: no jobs are read, pages report in so samples can be kept", () => {
+test("Indeed is read by its own reader; the pages it reports are the same ones samples can be kept from", () => {
   const fs = require("node:fs");
   const manifest = JSON.parse(fs.readFileSync(require.resolve("../extension/manifest.json"), "utf8"));
   const entry = manifest.content_scripts.find((item) => item.matches.some((m) => m.includes("indeed.com")));
-  assert.deepStrictEqual(entry.js, ["sites/sample-only.js", "content/capture.js"]);
-  assert.ok(manifest.background.scripts.indexOf("sites/sample-only.js") < manifest.background.scripts.indexOf("background.js"));
-  require("../extension/sites/sample-only.js");
-  const sample = globalThis.SampleParse;
-  assert.strictEqual(sample.onJobsPage(new URL("https://www.indeed.com/jobs?q=web")), true); // every page reports in, so a sample can be kept
-  assert.strictEqual(sample.expectsJobs("https://www.indeed.com/jobs?q=web"), false);
-  assert.strictEqual(sample.onJobsPage(new URL("https://www.indeed.com/account/view")), false); // no samples of account pages
-  assert.strictEqual(sample.onJobsPage(new URL("https://www.indeed.com/viewjob?jk=abc")), true);
-  assert.deepStrictEqual(sample.fromDom({}, "https://www.indeed.com/"), []);
+  assert.deepStrictEqual(entry.js, ["sites/indeed-parse.js", "content/capture.js"]);
+  assert.ok(manifest.background.scripts.indexOf("sites/indeed-parse.js") < manifest.background.scripts.indexOf("background.js"));
+  require("../extension/sites/indeed-parse.js");
+  const indeed = globalThis.IndeedParse;
+  assert.strictEqual(indeed.onJobsPage(new URL("https://www.indeed.com/jobs?q=web")), true);
+  assert.strictEqual(indeed.expectsJobs("https://www.indeed.com/jobs?q=web"), true);
+  assert.strictEqual(indeed.onJobsPage(new URL("https://www.indeed.com/account/view")), false); // no pages of account areas
+  assert.strictEqual(indeed.onJobsPage(new URL("https://www.indeed.com/viewjob?jk=abc")), true);
 });
 
 const CARDS = `<!doctype html><html><body><main><ul id="list">
