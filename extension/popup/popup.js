@@ -31,13 +31,33 @@ function savePage(site) {
     .catch((error) => { message.textContent = String(error.message || error); });
 }
 
+// Where each website's title goes when clicked: the page for finding jobs there.
+const SITE_PAGES = {
+  linkedin: "https://www.linkedin.com/jobs/",
+  mwe: "https://mwejobs.maryland.gov/",
+  usajobs: "https://www.usajobs.gov/",
+  jobaps: "https://www.jobapscloud.com/md/jobs/mdod/",
+  indeed: "https://www.indeed.com/",
+};
+
+function siteTitle(site, name) {
+  const url = SITE_PAGES[site];
+  if (!url) return el("span", { textContent: name });
+  const link = el("a", { href: url, textContent: name, className: "site-link", title: `Open ${name} in a new tab` });
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    browser.tabs.create({ url });
+  });
+  return link;
+}
+
 function show(result) {
   sitesBox.replaceChildren();
   for (const [site, info] of Object.entries(result.sites)) {
     const toggle = el("input", { type: "checkbox", checked: info.enabled, title: "Capture on this site" });
     toggle.addEventListener("change", () => send({ type: "set-enabled", site, enabled: toggle.checked }).then(show));
     const card = el("div", { className: "site" }, [
-      el("div", { className: "site-head" }, [el("span", { textContent: info.name }), el("label", {}, [toggle, " On"])]),
+      el("div", { className: "site-head" }, [siteTitle(site, info.name), el("label", {}, [toggle, " On"])]),
       el("div", {
         className: "counts",
         textContent: `Today: ${info.seen} seen · ${info.opened} opened · ${info.fresh} new`,
