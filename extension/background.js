@@ -91,12 +91,13 @@ function stamp(date = new Date()) {
 
 async function load() {
   const saved = await browser.storage.local.get(
-    ["jobs", "settings", "dirty", "lastSave", "lastWritten", "broken", "errors", "noDetails", "autoSavedDay", "runs", "securityCheckDay",
+    ["jobs", "settings", "dirty", "lastSave", "lastWritten", "broken", "errors", "noDetails", "autoSavedDay", "runs", "securityCheckDay", "siteBlockedDay",
       "runAlert", "badgeClearedAt"]);
   state.badgeClearedAt = saved.badgeClearedAt || null;
   state.errors = saved.errors || {};
   state.runs = saved.runs || [];
   state.securityCheckDay = saved.securityCheckDay || null;
+  state.siteBlockedDay = saved.siteBlockedDay || {};
   state.runAlert = saved.runAlert || null;
   browser.storage.local.remove(["garden", "petPosition"]).catch(() => {}); // from v0.2.x, no longer used
   state.noDetails = saved.noDetails || {};
@@ -129,7 +130,7 @@ function persist() {
   return browser.storage.local.set({
     jobs: state.jobs, settings: state.settings, dirty: [...state.dirty], lastSave: state.lastSave, lastWritten: state.lastWritten, broken: state.broken,
     errors: state.errors, noDetails: state.noDetails, autoSavedDay: state.autoSavedDay, runs: state.runs,
-    securityCheckDay: state.securityCheckDay, runAlert: state.runAlert, badgeClearedAt: state.badgeClearedAt,
+    securityCheckDay: state.securityCheckDay, siteBlockedDay: state.siteBlockedDay, runAlert: state.runAlert, badgeClearedAt: state.badgeClearedAt,
   });
 }
 
@@ -616,7 +617,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
       case "pet-state":
         return petState(tabId);
       case "add-run":
-        addRun(message.when);
+        addRun(message.when, message.site || "linkedin");
         await persist();
         return popupState();
       case "remove-run":
@@ -624,7 +625,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
         await persist();
         return popupState();
       case "run-now": {
-        const run = addRun(new Date().toISOString());
+        const run = addRun(new Date().toISOString(), message.site || "linkedin");
         browser.alarms.clear(`run:${run.id}`);
         startRun(run.id); // runs on its own; the panel shows its tag
         await persist();
