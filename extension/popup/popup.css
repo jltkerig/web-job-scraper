@@ -66,6 +66,8 @@ main { padding: 10px 12px 12px; }
   font-weight: 600;
 }
 
+.site-link { color: var(--accent); text-decoration: none; }
+.site-link:hover, .site-link:focus-visible { text-decoration: underline; }
 .counts, .saved, .hint { color: var(--muted); }
 .counts { margin-top: 4px; }
 
