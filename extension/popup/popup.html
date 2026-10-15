@@ -19,11 +19,21 @@
       <h2>Websites</h2>
       <div id="sites"></div>
     </section>
-    <div class="actions">
-      <button id="save-now" type="button">Save now</button>
-      <button id="check-update" type="button">Check for updates</button>
-      <button id="clear-badge" type="button" title="Clear the number on the toolbar icon">Clear count</button>
-    </div>
+    <section class="buttons">
+      <h2>Save and update</h2>
+      <div class="action-row">
+        <button id="save-now" type="button">Save now</button>
+        <span>Writes the jobs found so far today to a new file in your downloads folder (<code>web-job-scraper\searches</code>) for Job Finder to import. This also happens by itself every minute.</span>
+      </div>
+      <div class="action-row">
+        <button id="check-update" type="button">Check for updates</button>
+        <span>Looks for a newer version of this extension.</span>
+      </div>
+      <div class="action-row">
+        <button id="clear-badge" type="button">Clear count</button>
+        <span>Sets the number on the toolbar icon back to zero. It then counts only jobs found from now on.</span>
+      </div>
+    </section>
     <section class="fit-status">
       <h2>Fit markers</h2>
       <p class="hint">On LinkedIn, jobs whose title fits your Job Finder titles get a green "Good Fit" tab, and an open job shows its whole description with a Job Fit score.</p>
@@ -74,9 +84,13 @@
         </select>
       </label>
     </section>
-    <div class="actions">
-      <button id="save-page" type="button" title="Saves the page in the open tab (a job page, Google results, any web page) to web-job-scraper\debug in your downloads folder so capture can be fixed or added. Scripts and anything typed into a field are left out.">Save this page for fixing</button>
-    </div>
+    <section class="page-fix">
+      <h2>Save a page for fixing</h2>
+      <div class="action-row">
+        <button id="save-page" type="button">Save this page</button>
+        <span>Copies the page in the open tab (a job page, Google results, any web page) to <code>web-job-scraper\debug</code> in your downloads folder, so capture can be fixed or added. Scripts and anything typed into a field are left out.</span>
+      </div>
+    </section>
     <p id="message" role="status"></p>
   </main>
   <script src="../pet/sprites.js"></script>

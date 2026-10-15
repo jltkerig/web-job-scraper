@@ -295,8 +295,10 @@ document.getElementById("load-profile").addEventListener("click", () => {
   const save = () => browser.storage.local.set({
     popupFolded: sections.filter((section) => section.classList.contains("folded")).map((section) => section.dataset.fold),
   }).catch(() => {});
+  // First time, the sections used least start folded; after that the panel keeps whatever was chosen.
+  const FOLDED_AT_FIRST = ["hidden-companies", "auto-sample", "pet-settings"];
   browser.storage.local.get("popupFolded").then((saved) => {
-    const folded = new Set(saved.popupFolded || []);
+    const folded = new Set(saved.popupFolded || (saved.popupFolded === undefined ? FOLDED_AT_FIRST : []));
     for (const section of sections) {
       const heading = section.querySelector(":scope > h2");
       section.dataset.fold = section.dataset.fold || section.className.split(" ")[0] || section.id || heading.textContent.trim();

@@ -177,3 +177,10 @@ main > section.folded > :not(h2) { display: none; }
 main > section.folded > h2 { margin-bottom: 0; }
 main > .sites-box.folded { padding-bottom: 12px; }
 main > section > .actions { margin: 10px 0 0; }
+/* A button with what it does beside it. */
+.action-row { display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 10px; align-items: start; margin-top: 12px; }
+.action-row button { width: 100%; white-space: normal; padding: 5px 8px; }
+.action-row span { color: var(--muted); font-size: 12px; }
+/* Nothing makes the panel wider than it is: long words wrap, flex and grid items may shrink. */
+main { min-width: 0; overflow-wrap: anywhere; }
+main > section, .site, .site-head, .actions, .action-row span { min-width: 0; }
