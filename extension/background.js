@@ -16,6 +16,9 @@ const SITES = {
   // Like the Maryland exchange, USAJOBS blocks automated visitors, so only pages you open are read.
   usajobs: { name: "USAJOBS", parse: globalThis.UsajobsParse, api: null,
     hosts: ["www.usajobs.gov", "usajobs.gov"] },
+  // The State of Maryland's own job feed (RSS): fetched here every few hours, not read from pages you open.
+  jobaps: { name: "State of Maryland Jobs", parse: null, api: null, feed: true,
+    hosts: ["www.jobapscloud.com", "jobapscloud.com"] },
 };
 
 function siteForUrl(url) {
@@ -43,11 +46,12 @@ const ERRORS = {
   securityCheck: "E7007", // a scheduled run stopped: LinkedIn showed a security check (no more runs that day)
   runTabClosed: "E7008", // a scheduled run stopped: its tab was closed
   runFailed: "E7009", // a scheduled run stopped for another reason
+  feed: "E7010", // the State of Maryland job feed could not be read
 };
 
 const state = {
   jobs: {}, // "site:job_id" -> record
-  settings: { enabled: { linkedin: true, mwe: true } },
+  settings: { enabled: { linkedin: true, mwe: true, jobaps: true } },
   dirty: new Set(), // "site|yyyy-mm-dd" files that need writing
   lastSave: {}, // site -> ISO time
   lastWritten: {}, // "site|yyyy-mm-dd" -> ISO time of the last file written: the next file holds what changed after it
@@ -99,7 +103,7 @@ async function load() {
   state.autoSavedDay = saved.autoSavedDay || {};
   state.jobs = saved.jobs || {};
   state.settings = { ...state.settings, ...(saved.settings || {}) };
-  state.settings.enabled = { linkedin: true, mwe: true, ...(state.settings.enabled || {}) };
+  state.settings.enabled = { linkedin: true, mwe: true, jobaps: true, ...(state.settings.enabled || {}) };
   const pet = state.settings.pet || {};
   state.settings.pet = { ...PET_DEFAULTS, ...pet, sites: { ...PET_DEFAULTS.sites, ...(pet.sites || {}) } };
   state.dirty = new Set(saved.dirty || []);
@@ -294,7 +298,7 @@ async function flush(force = false) {
         const wrote = await writeDay(site, day);
         state.dirty.delete(key);
         if (wrote) state.lastSave[site] = new Date().toISOString();
-        delete state.errors[site];
+        if (!state.errors[site] || state.errors[site].code === ERRORS.save) delete state.errors[site]; // not a feed problem
       } catch (error) {
         // The jobs stay in the extension and the file is tried again at the next save.
         state.errors[site] = {
@@ -364,7 +368,7 @@ function updateBadge() {
     return;
   }
   const problems = [
-    ...Object.keys(state.errors).map((site) => `[${state.errors[site].code}] ${SITES[site].name} file not saved`),
+    ...Object.keys(state.errors).map((site) => `[${state.errors[site].code}] ${SITES[site].name} ${state.errors[site].code === ERRORS.feed ? "jobs not read" : "file not saved"}`),
     ...Object.keys(state.noDetails).map((site) => `[${ERRORS.details}] ${SITES[site].name} job details not read`),
     ...Object.keys(state.broken).map((site) => `[${ERRORS.broken}] ${SITES[site].name} capture may be broken`),
   ];
@@ -831,6 +835,33 @@ async function distancesFor(wantedPlaces) {
   return { places: Object.fromEntries(wanted.map((place) => [place, distanceCache.get(place)])) };
 }
 
+// ---------- the State of Maryland's job feed ----------
+
+const FEED_EVERY_MINUTES = 180;
+let feedBusy = false;
+
+// Fetches the feed and keeps its jobs. One request; no cookies are sent. A failure is shown in the panel (error).
+async function refreshFeed() {
+  if (feedBusy || !state.settings.enabled.jobaps || !globalThis.JobapsFeed) return 0;
+  feedBusy = true;
+  try {
+    const response = await fetch(globalThis.JobapsFeed.FEED_URL, { credentials: "omit", cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = new TextDecoder("iso-8859-1").decode(await response.arrayBuffer());
+    const jobs = globalThis.JobapsFeed.parse(text);
+    if (!jobs.length) throw new Error("the feed had no jobs");
+    delete state.errors.jobaps;
+    return addJobs("jobaps", jobs, undefined);
+  } catch (error) {
+    state.errors.jobaps = { code: ERRORS.feed, message: `Could not read the State of Maryland job feed: ${String((error && error.message) || error)}`, at: new Date().toISOString() };
+    persistSoon();
+    return 0;
+  } finally {
+    feedBusy = false;
+  }
+}
+
+browser.alarms.create("jobaps-feed", { delayInMinutes: 1, periodInMinutes: FEED_EVERY_MINUTES });
 browser.alarms.create("flush", { periodInMinutes: 1 });
 browser.alarms.clear("fit-profile"); // older versions read Job Finder every few minutes
 browser.alarms.create("profile-check", { periodInMinutes: 60 });
@@ -839,6 +870,8 @@ browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "flush") {
     flush(false);
     updateBadge(); // rolls the "new today" count over at midnight
+  } else if (alarm.name === "jobaps-feed") {
+    ready.then(refreshFeed).catch(() => {});
   } else if (alarm.name === "profile-check") {
     refreshProfile().catch(() => {});
   } else if (alarm.name.startsWith("run:")) {
