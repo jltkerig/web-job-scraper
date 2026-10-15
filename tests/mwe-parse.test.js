@@ -69,3 +69,43 @@ test("which pages are job pages", () => {
   assert.strictEqual(parse.detailId(DETAIL, [{ job_id: "abc" }]), "abc");
   assert.strictEqual(parse.detailId(LIST, [{ job_id: "abc" }]), null);
 });
+
+test("a title with a highlighted search word is read whole, and dates and buttons are not jobs", () => {
+  const html = `<html><body><table>
+    <tr><td><a href="jobdetails.aspx?enc=a1"><b>Graphic</b> Designer</a></td><td>Acme Studio</td><td>Bethesda, MD</td>
+      <td><a href="jobdetails.aspx?enc=a1">11/07/2024</a></td><td><a href="jobdetails.aspx?enc=a1">Apply</a></td></tr>
+    <tr><td><a href="jobdetails.aspx?enc=b2">Web Developer</a></td>
+      <td>This chart is used to compare your background against this job to help to determine if you would be a good fit</td>
+      <td>Laurel, MD</td></tr></table></body></html>`;
+  const jobs = read(html, LIST);
+  assert.deepStrictEqual(jobs.map((job) => job.title), ["Graphic Designer", "Web Developer"]);
+  assert.strictEqual(jobs[0].company, "Acme Studio");
+  assert.strictEqual(jobs[1].company, "");
+});
+
+test("a page whose only heading is a section name gives no job rather than a wrong one", () => {
+  const html = `<html><body><form><h2>Job Summary</h2><div>Some text</div></form></body></html>`;
+  assert.deepStrictEqual(read(html, DETAIL), []);
+});
+
+test("the site's own result cards give title, employer, town and pay", () => {
+  const card = (id, title, employer, town, pay) => `<div class="JCardEmployerArea"><h2 class="JCardHeader2">
+    <a id="lnkJobOrderTitle_${id}" href="https://mwejobs.maryland.gov/vosnet/jobbanks/jobdetails.aspx?enc=AB/${id}+x==" class="JCardTitle" title="Job Title">
+    Experiential <span class="highlight_keyword">Graphic</span> Designer: </a></h2>
+    <div class="JCardEmployer "> ${employer} <div class="JCardEmployerLocation"> ${town}&nbsp;&nbsp; </div></div>
+    <div class="JCardTypePay"> Regular | ${pay} </div><div class="JCardDateCity">&nbsp;6 days ago</div></div>
+    <div class="JCardDescription">This chart is used to compare your background against this job</div>`;
+  const jobs = read(`<html><body>${card(1, "", "Ayers Saint Gross", "Baltimore, MD", "$65,000.00 Year")}${card(2, "", "Acme Inc", "Laurel, MD", "$20.00 Hour")}</body></html>`, LIST);
+  assert.strictEqual(jobs.length, 2);
+  assert.strictEqual(jobs[0].title, "Experiential Graphic Designer");
+  assert.strictEqual(jobs[0].company, "Ayers Saint Gross");
+  assert.strictEqual(jobs[0].location, "Baltimore, MD");
+  assert.strictEqual(jobs[0].salary, "$65,000.00 Year");
+  assert.strictEqual(jobs[1].salary, "$20.00 Hour");
+  assert.notStrictEqual(jobs[0].job_id, jobs[1].job_id);
+});
+
+test("the search form page is not a jobs page, the results page is", () => {
+  assert.strictEqual(parse.expectsJobs("https://mwejobs.maryland.gov/vosnet/JobBanks/JobSearchCriteriaQuick.aspx?nf=1&"), false);
+  assert.strictEqual(parse.expectsJobs("https://mwejobs.maryland.gov/vosnet/jobbanks/joblist.aspx?enc=91Ai"), true);
+});
