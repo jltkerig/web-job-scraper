@@ -28,6 +28,9 @@
 
 body {
   width: 340px;
+  /* Firefox makes the panel exactly 340px wide and, when the content is taller than the panel, draws a scrollbar inside
+     it that takes about 17px. The page then shrinks to what is left instead of running off the right side. */
+  max-width: 100%;
   margin: 0;
   overflow-x: hidden; /* the panel is exactly as wide as it needs; never a sideways scrollbar */
   font: 13px/1.4 system-ui, sans-serif;
@@ -110,7 +113,9 @@ button:hover { border-color: var(--accent); }
   border-bottom: 1px solid var(--line);
   background: linear-gradient(var(--sky), var(--sky) 88%, var(--grass) 88%);
 }
-.garden canvas { width: 340px; height: 116px; image-rendering: pixelated; display: block; }
+/* The scene is 340px wide; when the panel is narrower (a scrollbar showing) its left end is trimmed, so the fox stays whole. */
+.garden { display: flex; justify-content: flex-end; overflow: hidden; }
+.garden canvas { flex: none; width: 340px; height: 116px; image-rendering: pixelated; display: block; }
 .runs { margin: 10px 0; }
 /* The date-and-time box gets its own line (Firefox draws it wide), with the buttons under it, so nothing makes the
    panel wider than it is. */
