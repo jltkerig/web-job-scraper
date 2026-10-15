@@ -61,8 +61,9 @@ test("without a home, distances say what to do", async () => {
   assert.match(store.distanceError, /Home ZIP/);
 });
 
-test("the extension no longer talks to Job Finder", () => {
+test("the only thing it asks Job Finder for is the profile, and that needs no extra permission", () => {
   const manifest = fs.readFileSync(path.join(__dirname, "../extension/manifest.json"), "utf8");
   const background = fs.readFileSync(path.join(__dirname, "../extension/background.js"), "utf8");
-  assert.ok(!manifest.includes("127.0.0.1") && !background.includes("127.0.0.1"));
+  assert.ok(!manifest.includes("127.0.0.1")); // no host permission: Job Finder answers the extension's own address
+  assert.deepStrictEqual(background.match(/127\.0\.0\.1[^"'`]*/g), ["127.0.0.1:5000/extension/profile-file"]);
 });

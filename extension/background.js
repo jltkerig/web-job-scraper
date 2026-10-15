@@ -590,6 +590,18 @@ browser.runtime.onMessage.addListener((message, sender) => {
         return distancesFor(message.places);
       case "load-profile": // profile/profile.html: a file exported from Job Finder
         return loadProfileFile(message.profile);
+      case "refresh-profile": // popup > Check now
+        return refreshProfile(true);
+      case "set-profile-auto":
+        await browser.storage.local.set({ profileAuto: Boolean(message.enabled) });
+        return message.enabled ? refreshProfile(true) : { ok: true };
+      case "clear-needs-look": // popup > Needs a look > Clear list
+        for (const [key, job] of Object.entries(state.jobs)) {
+          if (!job.location && job.level !== "opened" && !job.closed && !job.applied) delete state.jobs[key];
+        }
+        await persist();
+        updateBadge();
+        return popupState();
       case "fit-profile-now": { // the LinkedIn page has no profile (or none with titles): say what is saved
         const saved = await browser.storage.local.get(["fitProfile", "fitProfileError"]);
         return { titles: ((saved.fitProfile && saved.fitProfile.titles) || []).length,
@@ -669,9 +681,9 @@ browser.tabs.onRemoved.addListener((tabId) => {
 });
 
 // Your Job Finder profile (titles, skills, work preferences, blocked companies, home) for marking LinkedIn jobs that
-// may fit (content/fit-marks.js). The extension works on its own: you export the profile from Job Finder's Dashboard
-// ("Export for Web Job Scraper") and load the file here (popup > Load profile, profile/profile.html). Nothing is read
-// from Job Finder, on this computer or the web.
+// may fit (content/fit-marks.js). It comes from Job Finder on this computer, which is asked once a day while Firefox is
+// open (refreshProfile below), or from a file exported on Job Finder's Dashboard ("Export for Web Job Scraper") and
+// loaded here (popup > Load a file, profile/profile.html) for the web version or when Job Finder isn't running.
 async function saveFitProfile(profile) {
   distanceCache.clear(); // the home may have changed
   await browser.storage.local.set({ fitProfile: profile, fitProfileAt: new Date().toISOString(), fitProfileError: "", distanceError: "" });
@@ -684,6 +696,42 @@ async function loadProfileFile(profile) {
   }
   await saveFitProfile(profile);
   return { ok: true, titles: profile.titles.length, skills: (profile.skills || []).length };
+}
+
+// Asks Job Finder on this computer for the profile again: once a day, and every hour after a try that failed (Job
+// Finder not running). A profile loaded from a file stays until a check works. Switched off with profileAuto: false.
+const PROFILE_URL = "http://127.0.0.1:5000/extension/profile-file";
+const PROFILE_CHECK_EVERY_MS = 23 * 60 * 60 * 1000;
+
+async function refreshProfile(force = false) {
+  const saved = await browser.storage.local.get(["profileAuto", "profileCheckedAt"]);
+  if (saved.profileAuto === false) return { ok: false, skipped: true };
+  if (!force && saved.profileCheckedAt && Date.now() - Date.parse(saved.profileCheckedAt) < PROFILE_CHECK_EVERY_MS) {
+    return { ok: true, skipped: true };
+  }
+  let failure = "";
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let response;
+    try {
+      response = await fetch(PROFILE_URL, { cache: "no-store", signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!response.ok) throw new Error(`Job Finder answered ${response.status}`);
+    const reply = await loadProfileFile(await response.json());
+    if (reply.ok) {
+      await browser.storage.local.set({ profileCheckedAt: new Date().toISOString(), profileCheckError: "" });
+      return reply;
+    }
+    failure = reply.error;
+  } catch (error) {
+    failure = error && error.message && !/NetworkError|fetch|aborted/i.test(error.message) ? error.message
+      : "Job Finder isn't open on this computer.";
+  }
+  await browser.storage.local.set({ profileCheckError: `${failure} (tried ${new Date().toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}; it tries again every hour)` });
+  return { ok: false, error: failure };
 }
 
 // Estimated distance and 6 a.m. drive time from home to each job's town, the same estimate as Job Finder's Dashboard
@@ -769,7 +817,7 @@ async function distancesFor(wantedPlaces) {
   const { fitProfile } = await browser.storage.local.get("fitProfile");
   const home = fitProfile && fitProfile.home && fitProfile.home.lat != null ? [fitProfile.home.lat, fitProfile.home.lon] : null;
   if (!home) {
-    browser.storage.local.set({ distanceError: "Distances need your Home ZIP: add it on Job Finder's Dashboard, export again and load the file." }).catch(() => {});
+    browser.storage.local.set({ distanceError: "Distances need your Home ZIP: add it on Job Finder's Dashboard, then click Check now (or export and load the file again)." }).catch(() => {});
     return { places: {}, error: "no home" };
   }
   try {
@@ -785,10 +833,14 @@ async function distancesFor(wantedPlaces) {
 
 browser.alarms.create("flush", { periodInMinutes: 1 });
 browser.alarms.clear("fit-profile"); // older versions read Job Finder every few minutes
+browser.alarms.create("profile-check", { periodInMinutes: 60 });
+ready.then(() => refreshProfile()).catch(() => {}); // at start-up: a profile more than a day old is asked for again
 browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "flush") {
     flush(false);
     updateBadge(); // rolls the "new today" count over at midnight
+  } else if (alarm.name === "profile-check") {
+    refreshProfile().catch(() => {});
   } else if (alarm.name.startsWith("run:")) {
     startRun(alarm.name.slice(4)); // runs.js: a scheduled run's time has come
   }
