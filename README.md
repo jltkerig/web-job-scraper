@@ -46,7 +46,7 @@ So you know which jobs are worth opening:
 - **Hide a company:** each card has a small **X**. Click it and every job from that company disappears from the list (the card doesn't open). The companies you hid are listed in the panel under **Hidden companies**, each with an **Unhide** button. Companies you blocked in Job Finder are hidden on LinkedIn too. Hiding is display only; nothing is deleted or sent anywhere.
 - **Fit tags are choosy:** a title counts when all its words are in the job's title, or (for titles of two or more words) when the job word matches and at least half the words do. A very common job word such as *specialist* or *manager* isn't enough alone, so *Marketing Specialist* is not a fit for *Production Specialist*.
 
-The extension uses a copy of your Job Finder profile: titles, skills, work preferences, blocked companies and your home's map point. On Job Finder's Dashboard (desktop or web), click **Export for Web Job Scraper**, then in the extension's panel click **Load profile** and choose the file. Export and load it again after changing your titles, skills or Home ZIP. Distances and drive times are worked out inside the extension from the bundled U.S. Census places table (`extension/data/us-places.json`), the same estimate Job Finder uses. The extension never connects to Job Finder. Nothing is sent to LinkedIn or anywhere else.
+The extension uses a copy of your Job Finder profile: titles, skills, work preferences, blocked companies and your home's map point. **Job Finder on your computer is asked for it automatically every day** (while Firefox is open; if Job Finder isn't running it tries again every hour), so changes to your titles, skills or Home ZIP arrive on their own. **Check now** in the panel asks right away, and the checkbox beside it turns the daily check off. For Job Finder's web version, or when Job Finder isn't running, click **Export for Web Job Scraper** on its Dashboard, then **Load a file** in the panel and choose the file; export and load it again after changing your profile. Distances and drive times are worked out inside the extension from the bundled U.S. Census places table (`extension/data/us-places.json`), the same estimate Job Finder uses. Nothing is sent to LinkedIn or anywhere else.
 
 ## Indeed and USAJOBS (collecting page layouts first)
 
@@ -58,11 +58,11 @@ So the extension can be fixed without you saving pages by hand, it saves a copy 
 
 ## The toolbar panel
 
-- **LinkedIn — On / Maryland Workforce Exchange — On:** turns capture on or off for each site.
+- **Websites:** one box with a row per site; each row has an On box that turns capture on or off for that site. Click any section's heading (Websites, Fit markers, Hidden companies ...) to fold it away or open it again; the panel remembers which are folded.
 - **Today:** jobs seen, jobs opened (full details captured) and jobs that are new today.
 - **Saved … ago:** when the day's file was last written. **Save now** writes it straight away.
 - **Check for updates:** if there's a newer version, the install page opens; click **Install**, then **Add**. The version you have is shown at the top right.
-- **Needs a look:** jobs whose card showed no location. Click one to open it. The full details are captured, and the next import fills in the location.
+- **Needs a look:** jobs whose card showed no location. Click one to open it. The full details are captured, and the next import fills in the location. **Clear list** forgets them all. Jobs placed outside the U.S. ("Istanbul, Türkiye") are recognized by their place and are not kept at all.
 - **Warning (orange `!` on the icon):** you were on a LinkedIn jobs page and no jobs were captured, which usually means LinkedIn changed its pages. Click **Save page for fixing** and the page is saved to `Downloads\web-job-scraper\debug\`, ready for updating the extension.
 
 The number on the icon is how many new jobs were captured today. **Clear count** in the panel resets it to zero; after that it counts only jobs found since you cleared it.
@@ -224,7 +224,7 @@ These are carried over from the original plan.
 
 ## Privacy
 
-- Everything stays on your computer. The extension doesn't connect to Job Finder at all; it only talks to this project's GitHub Pages site for update checks.
+- Everything stays on your computer. The only things the extension connects to are Job Finder on your own computer (`127.0.0.1:5000`, once a day, to read your profile) and this project's GitHub Pages site (update checks).
 - Job files and "page samples" are saved in plain text in your downloads folder (`web-job-scraper\`). Samples are made without scripts and without anything typed into a field, but they are still pages you were signed in on, so they can hold your name. They are only made on job search and job pages, never on account, profile, resume or message pages. Delete the `debug` folder when you no longer need it, and turn off "Page samples" in the panel to stop them.
 - **Any other page:** "Save this page for fixing" in the extension's popup also works on a page the extension doesn't read (Google results, any web page you come across). It uses Firefox's "active tab" permission, so it can only copy the tab you press the button on, only at that moment, and nothing is read from that site otherwise. The copy goes to `web-job-scraper\debug\<site>-<time>\page.html` (with `responses.json` holding just the address) so a reader can be written for the page. Look it over before you share it: it is a copy of whatever the page showed you.
 - A LinkedIn sample also saves LinkedIn's background job data (`responses.json`), which can include your own account details. These are only saved when capture finds nothing or when you press the panel's save button.

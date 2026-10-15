@@ -77,6 +77,7 @@ function show(result) {
   }
 
   needsCount.textContent = result.needsLookTotal ? `(${result.needsLookTotal})` : "";
+  document.getElementById("clear-needs").hidden = !result.needsLookTotal;
   needsList.replaceChildren();
   if (!result.needsLook.length) {
     needsList.append(el("li", { className: "hint", textContent: "Nothing waiting." }));
@@ -235,27 +236,79 @@ send({ type: "popup-state" }).then((result) => {
   showPet(result);
 });
 
-// Fit markers: whether the extension has your Job Finder profile, and how fresh it is.
-browser.storage.local.get(["fitProfile", "fitProfileAt", "fitProfileError", "distanceError"]).then((saved) => {
-  const status = document.getElementById("fit-status");
-  const titles = (saved.fitProfile && saved.fitProfile.titles) || [];
-  if (!saved.fitProfile) {
-    status.textContent = "No profile yet: on Job Finder's Dashboard click Export for Web Job Scraper, then Load profile here.";
-  } else if (!titles.length) {
-    status.textContent = "Your Job Finder profile has no job titles yet, so nothing is marked.";
-  } else {
-    const when = saved.fitProfileAt ? new Date(saved.fitProfileAt).toLocaleString() : "earlier";
-    status.textContent = `Using ${titles.length} title${titles.length === 1 ? "" : "s"} and ` +
-      `${(saved.fitProfile.skills || []).length} skills from your Job Finder profile (loaded ${when}).` +
-      (saved.distanceError ? ` ${saved.distanceError}` : "");
-  }
-}).catch(() => {});
+// Fit markers: whether the extension has your Job Finder profile, and how fresh it is. Job Finder on this computer is
+// asked for it every day (background.js); a file is for the web version or when Job Finder isn't running.
+function showFitStatus() {
+  browser.storage.local.get(["fitProfile", "fitProfileAt", "distanceError", "profileAuto", "profileCheckError"]).then((saved) => {
+    const status = document.getElementById("fit-status");
+    const auto = saved.profileAuto !== false;
+    document.getElementById("profile-auto").checked = auto;
+    const titles = (saved.fitProfile && saved.fitProfile.titles) || [];
+    let text;
+    if (!saved.fitProfile) {
+      text = auto ? "No profile yet. Start Job Finder and click Check now."
+        : "No profile yet: on Job Finder's Dashboard click Export for Web Job Scraper, then Load a file here.";
+    } else if (!titles.length) {
+      text = "Your Job Finder profile has no job titles yet, so nothing is marked.";
+    } else {
+      const when = saved.fitProfileAt
+        ? new Date(saved.fitProfileAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "earlier";
+      text = `Using ${titles.length} title${titles.length === 1 ? "" : "s"} and ${(saved.fitProfile.skills || []).length} skills ` +
+        `from your Job Finder profile (updated ${when}${auto ? "; checked every day" : ""}).`;
+    }
+    if (auto && saved.profileCheckError) text += ` Last check: ${saved.profileCheckError}`;
+    if (saved.distanceError) text += ` ${saved.distanceError}`;
+    status.textContent = text;
+  }).catch(() => {});
+}
+showFitStatus();
 
-// Load profile opens a page of its own: Firefox closes the popup when a file picker opens.
+document.getElementById("check-profile").addEventListener("click", () => {
+  message.textContent = "Asking Job Finder…";
+  send({ type: "refresh-profile" })
+    .then((reply) => {
+      message.textContent = reply.ok ? "Profile updated from Job Finder." : (reply.skipped ? "Turn on the daily check first." : `Couldn't update: ${reply.error}`);
+      showFitStatus();
+    })
+    .catch((error) => { message.textContent = String(error.message || error); });
+});
+
+document.getElementById("profile-auto").addEventListener("change", (event) => {
+  send({ type: "set-profile-auto", enabled: event.target.checked }).then(showFitStatus).catch(() => {});
+});
+
+document.getElementById("clear-needs").addEventListener("click", () => {
+  send({ type: "clear-needs-look" }).then((result) => { show(result); message.textContent = "Cleared."; }).catch((error) => {
+    message.textContent = String(error.message || error);
+  });
+});
+
+// A file opens a page of its own: Firefox closes the popup when a file picker opens.
 document.getElementById("load-profile").addEventListener("click", () => {
   browser.tabs.create({ url: browser.runtime.getURL("profile/profile.html") });
   window.close();
 });
+
+// Sections fold from their headings; which are folded is remembered between openings.
+(function foldableSections() {
+  const sections = Array.from(document.querySelectorAll("main > section")).filter((section) => section.querySelector(":scope > h2"));
+  const save = () => browser.storage.local.set({
+    popupFolded: sections.filter((section) => section.classList.contains("folded")).map((section) => section.dataset.fold),
+  }).catch(() => {});
+  browser.storage.local.get("popupFolded").then((saved) => {
+    const folded = new Set(saved.popupFolded || []);
+    for (const section of sections) {
+      const heading = section.querySelector(":scope > h2");
+      section.dataset.fold = section.dataset.fold || section.className.split(" ")[0] || section.id || heading.textContent.trim();
+      const button = el("button", { type: "button", className: "fold" });
+      button.append(...heading.childNodes);
+      heading.append(button);
+      const fold = (on) => { section.classList.toggle("folded", on); button.setAttribute("aria-expanded", String(!on)); };
+      fold(folded.has(section.dataset.fold));
+      button.addEventListener("click", () => { fold(!section.classList.contains("folded")); save(); });
+    }
+  }).catch(() => {});
+})();
 
 // "Nearest first": remembered in storage; the LinkedIn page script reads it.
 browser.storage.local.get("sortByDistance").then((saved) => {

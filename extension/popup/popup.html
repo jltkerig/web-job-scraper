@@ -15,7 +15,10 @@
     <canvas id="garden" width="340" height="116"></canvas>
   </section>
   <main>
-    <section id="sites"></section>
+    <section class="sites-box">
+      <h2>Websites</h2>
+      <div id="sites"></div>
+    </section>
     <div class="actions">
       <button id="save-now" type="button">Save now</button>
       <button id="check-update" type="button">Check for updates</button>
@@ -25,7 +28,11 @@
       <h2>Fit markers</h2>
       <p class="hint">On LinkedIn, jobs whose title fits your Job Finder titles get a green "Good Fit" tab, and an open job shows its whole description with a Job Fit score.</p>
       <p id="fit-status" class="hint"></p>
-      <button id="load-profile" type="button">Load profile</button>
+      <label><input id="profile-auto" type="checkbox"> Ask Job Finder for my profile every day (it must be running on this computer)</label>
+      <div class="actions">
+        <button id="check-profile" type="button">Check now</button>
+        <button id="load-profile" type="button" title="For Job Finder's web version, or when Job Finder isn't running">Load a file</button>
+      </div>
       <label><input id="sort-distance" type="checkbox"> List LinkedIn jobs nearest first (each card also shows its distance and 6 a.m. drive time)</label>
     </section>
     <section class="hidden-companies">
@@ -54,6 +61,7 @@
       <h2>Needs a look <span id="needs-count"></span></h2>
       <p class="hint">These jobs had no location on their card. Open one to capture its full details.</p>
       <ul id="needs-list"></ul>
+      <div class="actions"><button id="clear-needs" type="button" title="Forget these jobs (jobs already saved to your files stay there)">Clear list</button></div>
     </section>
     <section class="pet-settings">
       <h2>Fox</h2>

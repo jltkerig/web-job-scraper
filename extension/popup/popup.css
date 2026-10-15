@@ -138,8 +138,12 @@ button:hover { border-color: var(--accent); }
 
 /* Roomier layout: every area sits between divider bars, with space around its heading and text. */
 main { padding: 0 14px 14px; }
-main > section:not(#sites), main > .actions { margin: 0; padding: 16px 0; border-top: 1px solid var(--line); }
-main > #sites { padding: 14px 0 6px; }
+main > section:not(.sites-box), main > .actions { margin: 0; padding: 16px 0; border-top: 1px solid var(--line); }
+/* The websites share one box: each is a row inside it, divided by a line. */
+main > .sites-box { margin: 14px 0 6px; padding: 12px 12px 2px; border: 1px solid var(--line); border-radius: 8px; }
+main > .sites-box > h2 { margin-bottom: 4px; }
+#sites .site { border: 0; border-radius: 0; margin: 0; padding: 10px 0; border-top: 1px solid var(--line); }
+#sites .site:first-child { border-top: 0; }
 main > .actions { margin-bottom: 0; }
 main > section > h2 { margin: 0 0 10px; font-size: 14px; }
 main > section p { margin: 0 0 10px; }
@@ -163,3 +167,13 @@ main > section label input[type="checkbox"] { margin: 2px 0 0; flex: none; }
 #message { margin: 0; }
 #message:not(:empty) { padding: 0 0 14px; }
 main > section label + p { margin-top: 10px; }
+
+/* Each section's heading folds it away (popup.js remembers which are folded). */
+.fold { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 6px; width: 100%; cursor: pointer; }
+.fold::before { content: "\25BE"; color: var(--muted); font-size: 11px; width: 10px; flex: none; }
+.folded > h2 .fold::before { content: "\25B8"; }
+.fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+main > section.folded > :not(h2) { display: none; }
+main > section.folded > h2 { margin-bottom: 0; }
+main > .sites-box.folded { padding-bottom: 12px; }
+main > section > .actions { margin: 10px 0 0; }
