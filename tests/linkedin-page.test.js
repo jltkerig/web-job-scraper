@@ -123,3 +123,15 @@ test("jobs are read on any LinkedIn page, and a message that mentions a job is n
   assert.strictEqual(jobs["4400000051"].company, "Acme Health");
   assert.strictEqual(jobs["4400000052"].closed, false);
 });
+
+test("a card's LinkedIn notice between the title and the company is not saved as the company", () => {
+  const html = `<!doctype html><html><body><main><section><h2>Jobs</h2>
+    <div componentkey="job-card-component-ref-4471738749"><p>Web Developer (CMS) (Verified job)</p><p>Web Developer (CMS)</p>
+      <p>Your application was viewed</p><p>Acme Health</p><p>Hunt Valley, MD (Hybrid)</p><p>Applied</p></div>
+    <a href="https://www.linkedin.com/jobs/search-results/?currentJobId=4455555555"><p>Web Designer</p><p>application was viewed</p><p>Beta Studio</p><p>Baltimore, MD</p></a>
+  </section></main></body></html>`;
+  const dom = new JSDOM(html, { url: "https://www.linkedin.com/jobs/search-results/?keywords=web" });
+  const jobs = Object.fromEntries(parse.cards(dom.window.document, dom.window.location.href).map(({ job }) => [job.job_id, job]));
+  assert.strictEqual(jobs["4471738749"].company, "Acme Health");
+  assert.strictEqual(jobs["4455555555"].company, "Beta Studio");
+});
