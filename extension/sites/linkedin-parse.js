@@ -304,6 +304,12 @@
     return job.title || job.description ? job : null;
   }
 
+  // A card's lines without LinkedIn's own notices ("Your application was viewed"), which sit between the title and the
+  // company on jobs you applied to and would otherwise be saved as the company.
+  function cardLines(element) {
+    return lines(element).filter((line) => !NOTICE_LINE.test(line));
+  }
+
   // Job cards in lists: links to /jobs/view/<id> or to a list with currentJobId=<id>. In the 2026 layout the link
   // wraps the whole card: title, company, location, then pay, benefits, "Promoted", "Applied".
   // Each card as { element, job }: element is the box the card's text came from (used to mark good fits).
@@ -321,7 +327,7 @@
     for (const block of doc.querySelectorAll("[componentkey^='job-card-component-ref-']")) {
       const id = (block.getAttribute("componentkey").match(/(\d{6,})$/) || [])[1];
       if (!id || found.has(id)) continue;
-      let card = lines(block);
+      let card = cardLines(block);
       const plain = (line) => cleanTitle(String(line || "").replace(/^selected,\s*/i, "")).toLowerCase();
       if (card.length > 1 && plain(card[0]) === plain(card[1])) card = card.slice(1); // drop the accessible repeat
       if (card.length < 2) continue;
@@ -350,14 +356,14 @@
       }
       if (!path.startsWith("/jobs")) continue;
       let element = link;
-      let card = lines(link);
+      let card = cardLines(link);
       if (card.length < 2) {
         // Older layout: the link holds only the title and the card is its list item.
         const box = link.closest("li, [data-job-id], [data-occludable-job-id]");
         const ids = box ? new Set(Array.from(box.querySelectorAll("a[href*='/jobs/view/'], a[href*='currentJobId=']"),
           (node) => idFromUrl(node.getAttribute("href")))) : new Set();
         if (box && ids.size === 1) {
-          card = lines(box);
+          card = cardLines(box);
           element = box;
         }
       }
