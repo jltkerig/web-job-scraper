@@ -8,6 +8,10 @@
   const SITE = "mwe";
   const LOCATION_LINE = /,\s*[A-Z]{2}\b|\bremote\b|united states/i;
   const LABEL = /^(employer|company|employer name|location|job location|posted|date posted|posting date|salary|wage|job (?:order )?(?:id|number)|mwe job id)\s*:?$/i;
+  // Words in a job's link or a page's headings that are not a job's title: a date, a button, a section name.
+  const NOT_A_TITLE = /^(?:\d{1,2}\/\d{1,2}\/\d{2,4}|apply(?: now)?|view(?: details)?|details|more|save|job (?:summary|description|details|information|overview)|help for .*|e-?signature.*)$/i;
+  // Page text that is not a company: the fit chart's explanation, or any long sentence.
+  const NOT_A_COMPANY = /^(?:this chart is used|you match \d|\d|posted|save|apply|view)|ago$/i;
   const CLOSED_TEXT = /this job (?:order )?(?:is|has been) (?:closed|filled|expired)|no longer (?:available|accepting)/i;
 
   function isDetailPage(pageUrl) {
@@ -16,7 +20,9 @@
 
   // Job search and job pages: where jobs are expected (used by the capture health check).
   function expectsJobs(pageUrl) {
-    return isDetailPage(pageUrl) || /\/jobbanks\/(?:joblist|jobsearch|searchresults)/i.test(String(pageUrl || ""));
+    // joblist.aspx is the results page. The search form (JobSearchCriteria*.aspx) has no jobs, so it must not raise the
+    // "capture may be broken" warning.
+    return isDetailPage(pageUrl) || /\/jobbanks\/(?:joblist|searchresults)/i.test(String(pageUrl || ""));
   }
 
   function onJobsPage(loc) {
@@ -137,7 +143,7 @@
     const all = lines(main, { unique: false });
     const heading = Array.from(main.querySelectorAll("h1, h2, h3"))
       .map((node) => node.textContent.replace(/\s+/g, " ").trim())
-      .find((text) => text && !/^(job details|job search|search results|mwejobs)$/i.test(text) && text.length < 150);
+      .find((text) => text && !/^(job details|job search|search results|mwejobs)$/i.test(text) && !NOT_A_TITLE.test(text) && text.length < 150);
     const title = heading || labelled(all, /job title|position( title)?/) || "";
     if (!title) return null;
     const company = labelled(all, /employer( name)?|company( name)?/);
@@ -153,17 +159,51 @@
     }, pageUrl);
   }
 
-  // Search results: each job is a link to jobdetails.aspx with the employer and place nearby.
+  // Search results as the site builds them (seen 2026-10-15): each job is a .JCardEmployerArea with its title link
+  // (.JCardTitle, the searched word wrapped in a span), .JCardEmployer (the employer's name, then the town in
+  // .JCardEmployerLocation), .JCardTypePay ("Regular | $65,000.00 Year") and .JCardDateCity ("6 days ago"). The job's
+  // description starts is in the .JCardDescription next to it. The links are long encrypted addresses.
+  function jobCards(doc, pageUrl) {
+    const jobs = [];
+    for (const link of doc.querySelectorAll("a.JCardTitle")) {
+      const title = (link.textContent || "").replace(/\s+/g, " ").trim().replace(/[:\s]+$/, "");
+      if (!title) continue;
+      const area = link.closest(".JCardEmployerArea") || link.parentElement;
+      const employer = area.querySelector(".JCardEmployer");
+      const place = employer && employer.querySelector(".JCardEmployerLocation");
+      const company = employer
+        ? Array.from(employer.childNodes).filter((node) => node.nodeType === 3).map((node) => node.nodeValue.replace(/[\s ]+/g, " ").trim()).find((text) => text && !/^not available$/i.test(text)) || ""
+        : "";
+      const location = place ? place.textContent.replace(/[\s ]+/g, " ").trim() : "";
+      const typePay = (area.querySelector(".JCardTypePay") || {}).textContent || "";
+      const pay = typePay.match(/\$[\d,.]+(?:\.\d+)?\s*(?:-\s*\$[\d,.]+\s*)?(?:Year|Hour|Month|Week|Day)?/i);
+      let url = pageUrl;
+      try {
+        url = new URL(link.getAttribute("href"), pageUrl).href;
+      } catch (error) {
+        // keep the page's own address
+      }
+      jobs.push(job({ title, company, location, url, salary: pay ? pay[0].replace(/\s+/g, " ").trim() : "" }, pageUrl));
+    }
+    return jobs;
+  }
+
+  // Any other results layout: each job is a link to jobdetails.aspx with the employer and place nearby.
   function cardsFromDom(doc, pageUrl) {
+    const known = jobCards(doc, pageUrl);
+    if (known.length) return known;
     const jobs = [];
     for (const link of doc.querySelectorAll("a[href*='jobdetails.aspx' i]")) {
-      const title = lines(link)[0] || "";
-      if (!title || /^(view|details|more)/i.test(title)) continue;
+      // The whole link's text: a searched word can be highlighted in its own element ("Graphic" + " Designer").
+      const title = (link.textContent || "").replace(/\s+/g, " ").trim();
+      if (!title || NOT_A_TITLE.test(title)) continue;
       const card = link.closest("tr, li, article, div[class*='job' i], div[class*='result' i]");
-      const links = card ? card.querySelectorAll("a[href*='jobdetails.aspx' i]").length : 0;
-      const rest = card && links <= 2 ? lines(card).filter((line) => line !== title) : [];
+      // A row can link to its job three times (title, date, Apply): those are one job; two different jobs are two cards.
+      const links = card ? new Set(Array.from(card.querySelectorAll("a[href*='jobdetails.aspx' i]"), (a) => a.getAttribute("href"))).size : 0;
+      const rest = card && links <= 1 ? lines(card).filter((line) => line !== title) : [];
       const location = rest.find((line) => LOCATION_LINE.test(line) && line.length < 60) || "";
-      const company = rest.find((line) => line !== location && !/^\d|posted|ago$|^(save|apply|view)/i.test(line)) || "";
+      const company = rest.find((line) => line !== location && line.length <= 80 && !NOT_A_COMPANY.test(line)
+        && !title.includes(line)) || "";
       let url = pageUrl;
       try {
         url = new URL(link.getAttribute("href"), pageUrl).href;
