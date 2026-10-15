@@ -230,6 +230,12 @@
     return isDetailPage(pageUrl) && jobs.length === 1 ? jobs[0].job_id : null;
   }
 
-  root.MweParse = { SITE, NAME: "Maryland Workforce Exchange", fromDom, expectsJobs, onJobsPage, pageKind, detailId, jobKey };
+  // Before 0.16.2 the reader saved the fit chart's explanation ("This chart is used to compare your background...") as the
+  // employer. Records holding it are dropped on start-up and read again properly the next time the page is opened.
+  function badCompany(text) {
+    return /^this chart is used\b|\byou match (?:null|\d+)%/i.test(String(text || ""));
+  }
+
+  root.MweParse = { SITE, NAME: "Maryland Workforce Exchange", fromDom, expectsJobs, onJobsPage, pageKind, detailId, jobKey, badCompany };
   root.CaptureParse = root.MweParse;
 })(typeof globalThis !== "undefined" ? globalThis : this);
