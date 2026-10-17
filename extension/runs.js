@@ -43,7 +43,7 @@ const RUN_KEEP = 20; // finished runs kept in the list
 const SIGN_IN_PAGE = /linkedin\.com\/(?:login|uas\/login|authwall|signup)/i;
 const OTHER_SECURITY_PAGE = /captcha|challenge|access-?denied|blocked|forbidden|unusual-?traffic/i; // USAJOBS and Maryland
 const SITE_NAMES = { linkedin: "LinkedIn", usajobs: "USAJOBS", mwe: "Maryland Workforce Exchange", jobaps: "State of Maryland jobs" };
-const USAJOBS_TITLES = 5; // your first job titles searched on USAJOBS
+const USAJOBS_TITLES = 15; // most Job Finder titles searched on USAJOBS (a run takes longer with more)
 const USAJOBS_PAGES = 3;
 const MWE_PAGES = 15; // most page numbers clicked in one run
 const MWE_GAP_MS = [25000, 60000]; // time on each Maryland page before the next number is clicked
@@ -224,8 +224,10 @@ async function runLinkedin(run) {
   }
 }
 
-// USAJOBS: your Job Finder titles (up to 5), searched in Maryland, a few result pages each.
+// USAJOBS: your Job Finder titles (up to USAJOBS_TITLES), searched in Maryland, a few result pages each. The titles are
+// asked for again first, so a title added in Job Finder since the last daily check is searched too.
 async function runUsajobs(run) {
+  await refreshProfile(true).catch(() => {}); // Job Finder not open: the titles already kept are used
   const saved = await browser.storage.local.get("fitProfile");
   const titles = ((saved.fitProfile && saved.fitProfile.titles) || []).slice(0, USAJOBS_TITLES);
   if (!titles.length) {

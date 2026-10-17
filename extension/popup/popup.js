@@ -129,7 +129,7 @@ const TAGS = { scheduled: "Scheduled", running: "Running", done: "Done", stopped
 const RUN_HINTS = {
   linkedin: "At the time you pick, Firefox opens LinkedIn's recommended jobs in a background tab, collects them, opens up to 10 new ones for details, then closes the tab. Firefox must be open.",
   mwe: "Search the Maryland Workforce Exchange yourself first (your search terms), and leave that results tab open. A run then clicks the page numbers 2, 3, 4… one at a time with a pause between each, while the jobs are saved. It uses your tab and doesn't close it.",
-  usajobs: "Firefox opens USAJOBS searches for your Job Finder titles in Maryland (a few result pages each) in a background tab, collects the jobs, then closes the tab.",
+  usajobs: "Firefox opens USAJOBS searches for each of your Job Finder titles in Maryland (a few result pages each, so it can take a while) in a background tab, collects the jobs, then closes the tab.",
   jobaps: "Reads the State of Maryland's job feed once (one request, nothing is browsed). This also happens by itself every few hours.",
 };
 const runTimes = {}; // the date and time typed into each site's box, kept while the panel redraws
