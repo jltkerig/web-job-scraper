@@ -867,11 +867,31 @@ async function refreshFeed() {
   }
 }
 
-browser.alarms.create("jobaps-feed", { delayInMinutes: 1, periodInMinutes: FEED_EVERY_MINUTES });
+// The feed no longer has its own timer: it is read only while Job Finder is open on this computer, checked at start-up
+// and by the hourly profile check, and at most once every FEED_EVERY_MINUTES.
+browser.alarms.clear("jobaps-feed");
+async function refreshFeedIfJobFinderOpen() {
+  try {
+    const { feedCheckedAt } = await browser.storage.local.get("feedCheckedAt");
+    if (feedCheckedAt && Date.now() - Date.parse(feedCheckedAt) < FEED_EVERY_MINUTES * 60 * 1000) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    try {
+      await fetch(PROFILE_URL, { cache: "no-store", signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    await refreshFeed();
+    if (!state.errors.jobaps) await browser.storage.local.set({ feedCheckedAt: new Date().toISOString() }); // a failed read is tried again next hour
+  } catch (error) {
+    // Job Finder isn't open: leave the feed alone
+  }
+}
 browser.alarms.create("flush", { periodInMinutes: 1 });
 browser.alarms.clear("fit-profile"); // older versions read Job Finder every few minutes
 browser.alarms.create("profile-check", { periodInMinutes: 60 });
 ready.then(() => refreshProfile()).catch(() => {}); // at start-up: a profile more than a day old is asked for again
+ready.then(refreshFeedIfJobFinderOpen).catch(() => {});
 browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "flush") {
     flush(false);
@@ -880,6 +900,7 @@ browser.alarms.onAlarm.addListener((alarm) => {
     ready.then(refreshFeed).catch(() => {});
   } else if (alarm.name === "profile-check") {
     refreshProfile().catch(() => {});
+    ready.then(refreshFeedIfJobFinderOpen).catch(() => {});
   } else if (alarm.name.startsWith("run:")) {
     startRun(alarm.name.slice(4)); // runs.js: a scheduled run's time has come
   }
