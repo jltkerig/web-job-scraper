@@ -51,9 +51,22 @@ function siteTitle(site, name) {
   return link;
 }
 
+// The site whose page is open in this window's tab, so its card can come first. Stays "" on any other page.
+let currentSite = "";
+function siteOfTab(tabUrl) {
+  let host = "";
+  try {
+    host = new URL(tabUrl).hostname.replace(/^www./, "");
+  } catch (error) {
+    return "";
+  }
+  return Object.keys(SITE_PAGES).find((site) => new URL(SITE_PAGES[site]).hostname.replace(/^www./, "") === host) || "";
+}
+
 function show(result) {
   sitesBox.replaceChildren();
-  for (const [site, info] of Object.entries(result.sites)) {
+  const ordered = Object.entries(result.sites).sort(([a], [b]) => (b === currentSite) - (a === currentSite));
+  for (const [site, info] of ordered) {
     const toggle = el("input", { type: "checkbox", checked: info.enabled, title: "Capture on this site" });
     toggle.addEventListener("change", () => send({ type: "set-enabled", site, enabled: toggle.checked }).then(show));
     const card = el("div", { className: "site" }, [
@@ -284,7 +297,8 @@ petEnabled.addEventListener("change", () => send({ type: "set-pet", enabled: pet
 petSpeed.addEventListener("change", () => send({ type: "set-pet", speed: petSpeed.value }).then(showPet));
 
 document.getElementById("version").textContent = `v${browser.runtime.getManifest().version}`;
-send({ type: "popup-state" }).then((result) => {
+browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => { currentSite = siteOfTab(tabs[0] && tabs[0].url); }, () => {})
+  .then(() => send({ type: "popup-state" })).then((result) => {
   show(result);
   showRuns(result);
   showPet(result);
