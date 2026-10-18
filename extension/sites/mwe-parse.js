@@ -138,6 +138,14 @@
     return "";
   }
 
+  // "Between $40k and $55k Per Year" is the page's own pay summary; else the posting's "Compensation:" line.
+  function postedPay(list) {
+    const at = list.findIndex((line) => /^between$/i.test(line));
+    if (at >= 0 && list[at + 3] && /^\$/.test(list[at + 1])) return list[at + 1] + " - " + list[at + 3] + " " + (list[at + 4] || "");
+    const comp = list.find((line) => /^compensation\s*:/i.test(line));
+    return comp ? comp.replace(/^compensation\s*:\s*/i, "") : "";
+  }
+
   function detailFromDom(doc, pageUrl) {
     const main = doc.querySelector("main, #content, #main, [role='main'], form") || doc.body;
     const all = lines(main, { unique: false });
@@ -146,15 +154,22 @@
       .find((text) => text && !/^(job details|job search|search results|mwejobs)$/i.test(text) && !NOT_A_TITLE.test(text) && text.length < 150);
     const title = heading || labelled(all, /job title|position( title)?/) || "";
     if (!title) return null;
-    const company = labelled(all, /employer( name)?|company( name)?/);
+    // MWE job pages show the employer right under the title and again after "Source:"; "Employer" alone is a form label.
+    const titleAt = all.indexOf(title);
+    const below = titleAt >= 0 ? all[titleAt + 1] : "";
+    const company = labelled(all, /source|employer( name)?|company( name)?/)
+      || (below && below.length <= 80 && !/:$/.test(below) ? below : "");
     const location = labelled(all, /(?:job )?location|work site location/) || all.find((line) => LOCATION_LINE.test(line) && line.length < 60) || "";
     const at = all.findIndex((line) => /^(job )?description\s*:?$/i.test(line) || /^duties/i.test(line));
-    const description = at >= 0 ? all.slice(at + 1, at + 120).join("\n") : "";
+    const stop = all.findIndex((line, i) => i > at && /^employer research$/i.test(line));
+    const description = at >= 0
+      ? all.slice(at + 1, stop > at ? stop : at + 120).filter((line) => !/^help for .*opens a new window\.?$/i.test(line)).join("\n")
+      : "";
     const text = all.join("\n");
     return job({
       title, company, location, description: description.slice(0, 20000),
       posted: labelled(all, /posted|date posted|posting date/),
-      salary: labelled(all, /salary|wage|pay/),
+      salary: labelled(all, /salary|wage|pay/) || postedPay(all),
       closed: CLOSED_TEXT.test(text),
     }, pageUrl);
   }

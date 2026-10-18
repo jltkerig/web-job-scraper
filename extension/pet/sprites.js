@@ -304,7 +304,7 @@
     crouch: crouch(),
     leap: stand({ walk: 0, tail: "UP", rise: 4 }),
     // Sniffing the air: standing with the nose lifted, twitching between two heights.
-    sniff: [stand({ headLift: 2 }), stand({ headLift: 3 })],
+    sniff: [stand({ headLift: 1 }), stand({ headLift: 2 })],
     // Running in circles after its tail: the walk cycle with the tail up and bouncing.
     run: [0, 1, 2, 3].map((walk) => stand({ walk, tail: "UP", bob: walk % 2 === 1 ? 1 : 0 })),
   };
