@@ -21,7 +21,7 @@ function sandbox({ titles = ["Web Designer", "Graphic Designer"], pagesAvailable
     ERRORS: { signIn: "E7006", securityCheck: "E7007", runTabClosed: "E7008", runFailed: "E7009", feed: "E7010" },
     state: { runs: [], jobs: {}, errors: {}, settings: { enabled: { linkedin: true, mwe: true, usajobs: true, jobaps: true } },
       securityCheckDay: null, siteBlockedDay: {}, runAlert: null },
-    persist: () => Promise.resolve(), updateBadge: () => {}, flush: () => Promise.resolve(),
+    persist: () => Promise.resolve(), updateBadge: () => {}, flush: () => Promise.resolve(), settleFox: () => {},
     localDay: (date = new Date()) => date.toISOString().slice(0, 10),
     visited: [],
     refreshFeed: async () => {

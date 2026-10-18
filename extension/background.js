@@ -67,6 +67,8 @@ const state = {
 };
 const tabCounts = new Map(); // tabId -> jobs received since the tab's last page view
 const tabSites = new Map(); // tabId -> site
+const scrapeSeen = new Map(); // tabId -> when jobs were last read there; the fox on that tab stays awake a while after
+const FOX_AWAKE_MS = 45000;
 const recentResponses = new Map(); // tabId -> [{ url, text }] for "Save page for fixing"
 let persistTimer = null;
 const ready = load();
@@ -195,7 +197,11 @@ function addJobs(site, jobs, tabId) {
     }
   }
   runSawJobs(tabId, keys, freshKeys); // runs.js: counts toward a scheduled run's result
-  if (tabId !== undefined && tabId >= 0) tabCounts.set(tabId, (tabCounts.get(tabId) || 0) + jobs.length);
+  if (tabId !== undefined && tabId >= 0) {
+    tabCounts.set(tabId, (tabCounts.get(tabId) || 0) + jobs.length);
+    scrapeSeen.set(tabId, Date.now());
+    setTimeout(() => notifyFox(tabId), FOX_AWAKE_MS + 500); // goes to sleep if nothing more was read by then
+  }
   if (state.broken[site]) {
     delete state.broken[site];
     changed = true;
@@ -231,10 +237,24 @@ function waitingJobs() {
     .map(({ site, job_id: jobId, title, url }) => ({ key: `${site}:${jobId}`, title, url }));
 }
 
-// The fox never appears in a scheduled run's tab: nothing is added to pages the extension opens by itself.
+// The fox is awake on a tab while the scraper is working on it (a scheduled run's tab, or jobs were read there in the
+// last moments) and sleeps once it's done.
+function scrapingNow(tabId) {
+  return isRunTab(tabId) || Date.now() - (scrapeSeen.get(tabId) || 0) < FOX_AWAKE_MS;
+}
+
 function petState(tabId) {
-  const pet = isRunTab(tabId) ? { ...state.settings.pet, enabled: false } : state.settings.pet;
-  return { pet, garden: waitingJobs() };
+  return { pet: state.settings.pet, garden: waitingJobs(), scraping: scrapingNow(tabId) };
+}
+
+function notifyFox(tabId) {
+  browser.tabs.sendMessage(tabId, { type: "pet-update", added: 0, ...petState(tabId) }).catch(() => {});
+}
+
+// A run is over on that tab: the fox there falls asleep.
+function settleFox(tabId) {
+  scrapeSeen.delete(tabId);
+  notifyFox(tabId);
 }
 
 // ---------- writing files ----------

@@ -333,6 +333,7 @@ async function startRun(id) {
     const { tabId, ownsTab } = activeRun;
     activeRun = null;
     if (tabId !== null && ownsTab) browser.tabs.remove(tabId).catch(() => {});
+    else if (tabId !== null) settleFox(tabId);
     flush(true);
   }
 }

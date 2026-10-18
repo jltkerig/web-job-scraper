@@ -69,6 +69,17 @@
       if (!this.flowers.length && !["sleep", "stretch", "pounce", "look"].includes(this.state)) this.nextIdle();
     }
 
+    // Whether the scraper is working on this page right now: the fox is awake while it is, and with nothing to
+    // collect either, sleeps once it stops.
+    setActive(active) {
+      active = Boolean(active);
+      if (active === this.active) return;
+      this.active = active;
+      if (this.reduced || ["stretch", "pounce", "look"].includes(this.state)) return;
+      if (active && this.state === "sleep") this.setState("stretch", 700 / this.speed, { after: () => this.nextIdle() });
+      else if (!active && !this.flowers.length && this.state !== "sleep") this.nextIdle();
+    }
+
     // The strip follows the window's width.
     resize(width) {
       this.width = width;
@@ -128,7 +139,7 @@
       if (this.reduced) return this.setState("sit", Infinity);
       const hold = rand(20000, 60000) / this.speed;
       // Nothing left to collect: the fox's work is done, so it sleeps until a new job turns up.
-      if (!this.flowers.length) return this.setState("sleep", hold * 4);
+      if (!this.flowers.length && !this.active) return this.setState("sleep", hold * 4);
       const naps = lateNight() ? 0.5 : 0.18;
       const roll = Math.random();
       if (roll < naps) return this.setState("sleep", hold * 1.5);

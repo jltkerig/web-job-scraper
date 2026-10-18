@@ -1,5 +1,6 @@
-// The fox and its garden, in a strip along the whole bottom of LinkedIn's job pages. It's decoration: each flower
-// is a job still to collect, and the fox sleeps once they're all collected. It sits in a closed shadow root so the
+// The fox and its garden, in a strip along the whole bottom of LinkedIn's job pages and of every Maryland Workforce
+// Exchange page. It's decoration: each flower is a job still to collect, and the fox sleeps once they're all
+// collected and the scraper has stopped working on the page. It sits in a closed shadow root so the
 // site's styles can't reach it, and clicks pass through to the page everywhere except on the fox and its buttons.
 // When the strip gets in the way, the – button shrinks it to a small fox badge in the corner (remembered for every
 // tab); clicking the badge brings it back.
@@ -7,7 +8,7 @@
   "use strict";
   if (window.top !== window) return;
 
-  const SITE = "linkedin";
+  const SITE = /(^|\.)maryland\.gov$/i.test(location.hostname) ? "mwe" : "linkedin";
   const HEIGHT = 128;
   const SCALE = 3;
   const BADGE = 48;
@@ -25,6 +26,7 @@
   let pet = null;
   let settings = null;
   let garden = [];
+  let scraping = false; // the scraper is working on this page now; the fox sleeps when it stops
   let frameRequest = null;
   let last = 0;
   let resizeTimer = null;
@@ -38,6 +40,7 @@
   const owned = () => document.documentElement.getAttribute(OWNER) === TOKEN;
 
   function onJobsPage() {
+    if (SITE !== "linkedin") return true; // every page of the other sites
     return /^\/jobs(?:\/|$)/i.test(location.pathname); // the Jobs section; not /jobs-tracker/, which has its own layout
   }
 
@@ -125,6 +128,7 @@
     sizeCanvas(width);
     pet = new globalThis.Pet.Pet({ width, height: HEIGHT, scale: SCALE, speed: settings.speed, reduced: reducedMotion.matches });
     pet.setFlowers(garden);
+    pet.setActive(scraping);
     // The fox is the only thing in the strip to click: it wakes up, or hops.
     foxSpot.addEventListener("click", () => pet.clicked());
     minimize.addEventListener("click", () => setMinimized(true));
@@ -211,6 +215,7 @@
     if (!host) return build();
     pet.setOptions({ speed: settings.speed, reduced: reducedMotion.matches });
     pet.setFlowers(garden);
+    pet.setActive(scraping);
     return undefined;
   }
 
@@ -218,6 +223,7 @@
     if (!message || message.type !== "pet-update") return undefined;
     settings = message.pet;
     garden = message.garden || [];
+    scraping = Boolean(message.scraping);
     apply();
     if (pet && message.added > 0) pet.captured(message.added);
     return undefined;
@@ -261,6 +267,7 @@
     .then(([state, saved]) => {
       settings = state.pet;
       garden = state.garden || [];
+      scraping = Boolean(state.scraping);
       minimized = Boolean(saved.petMinimized);
       apply();
     }).catch(() => {});
