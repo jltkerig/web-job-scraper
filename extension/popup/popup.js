@@ -106,7 +106,7 @@ function show(result) {
         el("div", { className: "hint", textContent: "Your jobs are kept; it tries again at the next save, or click Save now." }),
       ]));
     }
-    card.append(runBlock(site));
+    if (site !== "indeed") card.append(runBlock(site));
     sitesBox.append(card);
   }
   showRuns(result);

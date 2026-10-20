@@ -392,6 +392,10 @@ async function startRun(id) {
   if (!run || run.status !== "scheduled") return;
   const site = run.site || "linkedin";
   const name = SITE_NAMES[site] || site;
+  if (!RUN_SITES[site]) {
+    finishRun(run, "stopped", ERRORS.runFailed, `${name} has no automatic runs; it saves jobs as you browse.`);
+    return;
+  }
   if (activeRuns.has(site)) {
     finishRun(run, "stopped", ERRORS.runFailed, `Another ${name} run was still going.`);
     return;
