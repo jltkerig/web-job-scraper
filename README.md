@@ -6,7 +6,7 @@ It only reads the pages you open yourself. It never clicks, scrolls, or opens an
 
 **Sites:** LinkedIn, Indeed, the Maryland Workforce Exchange (mwejobs.maryland.gov) and USAJOBS (search results you open; job pages are read loosely until a real one has been seen). Glassdoor comes next.
 
-The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt disallows them), so Job Finder never searches it itself. The extension only reads MWE job pages and search results you open yourself. Many of the same jobs also reach Job Finder through the National Labor Exchange (usnlx.com), which Job Finder searches.
+The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt disallows them), so Job Finder never searches it itself. The extension reads MWE pages in your own Firefox, and a run you start searches your Job Finder titles there at a human pace. Many of the same jobs also reach Job Finder through the National Labor Exchange (usnlx.com), which Job Finder searches.
 
 ## How it works
 
@@ -82,7 +82,7 @@ The number on the icon is how many new jobs were captured today. **Clear count**
 **Runs on every site (0.17.0).** Each website in the panel's Websites box has its own **Run now**, a date and time with **Add**, and its list of runs right under its name:
 
 - **LinkedIn:** as described below.
-- **Maryland Workforce Exchange:** search the site yourself first (set your search terms) and leave the results tab open. A run then clicks the site's own page numbers 2, 3, 4... one at a time, waiting 25-60 seconds on each (at most 15 pages), while the jobs are saved as usual. It uses your tab and never closes it, and it never opens Maryland pages by itself (the site's robots.txt asks automated visitors to stay away, so this is you browsing, paced). A security check stops it and blocks Maryland runs for the day.
+- **Maryland Workforce Exchange:** a run types each of your first 15 Job Finder titles into the site's search form, then clicks the site's own page numbers 2, 3, 4... one at a time, waiting 25-60 seconds on each (at most 15 pages per title), while the jobs are saved as usual. It uses your open Maryland tab and leaves it open; with none open it uses a tab of its own and closes it. With no titles loaded it reads the search results you opened yourself. The search form is filled by looking for its keyword box and Search button; if the site changes, the run stops and says so (use **Save this page for fixing** on the form). A security check stops it and blocks Maryland runs for the day.
 - **USAJOBS:** opens searches for your first 5 Job Finder titles in Maryland (3 result pages each) in a background tab, then closes it. Needs your titles loaded (Check now under Fit markers).
 - **State of Maryland jobs:** reads the job feed once; no tab.
 

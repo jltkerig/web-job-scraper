@@ -45,6 +45,8 @@ const OTHER_SECURITY_PAGE = /captcha|challenge|access-?denied|blocked|forbidden|
 const SITE_NAMES = { linkedin: "LinkedIn", usajobs: "USAJOBS", mwe: "Maryland Workforce Exchange", jobaps: "State of Maryland jobs" };
 const USAJOBS_TITLES = 15; // most Job Finder titles searched on USAJOBS (a run takes longer with more)
 const USAJOBS_PAGES = 3;
+const MWE_TITLES = 15; // most Job Finder titles searched on Maryland Workforce Exchange
+const MWE_SEARCH_PAGE = "https://mwejobs.maryland.gov/vosnet/JobBanks/JobSearchCriteriaQuick.aspx";
 const MWE_PAGES = 15; // most page numbers clicked in one run
 const MWE_GAP_MS = [25000, 60000]; // time on each Maryland page before the next number is clicked
 const SECURITY_PAGE = /linkedin\.com\/(?:checkpoint|captcha|security|challenge)/i;
@@ -230,12 +232,17 @@ async function runLinkedin(run, activeRun) {
   }
 }
 
+// Your Job Finder titles (asked for again first, so a title added since the last daily check is included).
+async function jobFinderTitles(limit) {
+  await refreshProfile(true).catch(() => {}); // Job Finder not open: the titles already kept are used
+  const saved = await browser.storage.local.get("fitProfile");
+  return ((saved.fitProfile && saved.fitProfile.titles) || []).slice(0, limit);
+}
+
 // USAJOBS: your Job Finder titles (up to USAJOBS_TITLES), searched in Maryland, a few result pages each. The titles are
 // asked for again first, so a title added in Job Finder since the last daily check is searched too.
 async function runUsajobs(run, activeRun) {
-  await refreshProfile(true).catch(() => {}); // Job Finder not open: the titles already kept are used
-  const saved = await browser.storage.local.get("fitProfile");
-  const titles = ((saved.fitProfile && saved.fitProfile.titles) || []).slice(0, USAJOBS_TITLES);
+  const titles = await jobFinderTitles(USAJOBS_TITLES);
   if (!titles.length) {
     throw { code: ERRORS.runFailed, message: "No job titles yet. In the panel, click Check now under Fit markers so Job Finder's titles are loaded." };
   }
@@ -248,20 +255,11 @@ async function runUsajobs(run, activeRun) {
   }
 }
 
-// Maryland Workforce Exchange: starts from the search results you opened yourself (set your search terms first) and
-// clicks the site's own page numbers 2, 3, 4... one at a time, with a pause between each. Its tab stays yours.
-async function runMwe(run, activeRun) {
-  const tabs = await browser.tabs.query({ url: ["https://mwejobs.maryland.gov/*", "https://www.mwejobs.maryland.gov/*"] });
-  const tab = tabs.find((candidate) => /\/jobbanks\/joblist\.aspx/i.test(candidate.url || ""));
-  if (!tab) {
-    throw { code: ERRORS.runFailed, message: "Open your Maryland Workforce Exchange search results first (set your search terms and search), then run again." };
-  }
-  activeRun.tabId = tab.id;
-  activeRun.ownsTab = false;
-  await pause(randomBetween([3000, 6000]));
+// Clicks the site's own page numbers 2, 3, 4... one at a time, with a pause between each.
+async function mwePages(run, activeRun) {
   for (let step = 0; step < MWE_PAGES; step += 1) {
     await checkRunTab(activeRun);
-    const [clicked] = await browser.tabs.executeScript(tab.id, {
+    const [clicked] = await browser.tabs.executeScript(activeRun.tabId, {
       code: `(() => {
         const active = document.querySelector("ul.pagination li.active");
         const next = active && active.nextElementSibling;
@@ -277,6 +275,67 @@ async function runMwe(run, activeRun) {
     await pause(randomBetween(MWE_GAP_MS)); // the page's jobs load and are saved as they appear
     await checkRunTab(activeRun);
     persist();
+  }
+}
+
+// Types a title into the search form's keyword box and presses its Search button. Returns "" when done, or why not.
+function mweSearchCode(title) {
+  return `(() => {
+    const visible = (el) => el.offsetParent !== null;
+    const label = (el) => [el.id, el.name, el.placeholder, el.getAttribute("aria-label"),
+      (el.labels && el.labels[0] && el.labels[0].textContent) || ""].join(" ");
+    const boxes = [...document.querySelectorAll("input[type=text], input[type=search], input:not([type])")].filter(visible);
+    const box = boxes.find((el) => /key\\s*word|job\\s*title|search\\s*for/i.test(label(el))) || boxes[0];
+    if (!box) return "no keyword box";
+    box.focus();
+    box.value = ${JSON.stringify(title)};
+    box.dispatchEvent(new Event("input", { bubbles: true }));
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    const buttons = [...document.querySelectorAll("button, input[type=submit], input[type=button], a.btn")].filter(visible);
+    const text = (el) => (el.value || el.textContent || "").trim();
+    const go = buttons.find((el) => /^(search|find jobs|search jobs)\\b/i.test(text(el))) || buttons.find((el) => /search/i.test(text(el)));
+    if (!go) return "no Search button";
+    go.click();
+    return "";
+  })()`;
+}
+
+// Maryland Workforce Exchange: each of your Job Finder titles is typed into the site's search form (in your Firefox, at
+// a human pace), then the site's own page numbers 2, 3, 4... are clicked one at a time. Uses your open Maryland tab and
+// leaves it open; with none open, a tab of its own is used and closed. With no titles loaded it reads the search
+// results you opened yourself instead.
+async function runMwe(run, activeRun) {
+  const tabs = await browser.tabs.query({ url: ["https://mwejobs.maryland.gov/*", "https://www.mwejobs.maryland.gov/*"] });
+  const titles = await jobFinderTitles(MWE_TITLES);
+  if (!titles.length) {
+    const tab = tabs.find((candidate) => /\/jobbanks\/joblist\.aspx/i.test(candidate.url || ""));
+    if (!tab) {
+      throw { code: ERRORS.runFailed, message: "No job titles yet (click Check now under Fit markers so Job Finder's titles are loaded), and no Maryland Workforce Exchange search results are open." };
+    }
+    activeRun.tabId = tab.id;
+    activeRun.ownsTab = false;
+    await pause(randomBetween([3000, 6000]));
+    await mwePages(run, activeRun);
+    return;
+  }
+  if (tabs.length) {
+    activeRun.tabId = tabs[0].id;
+    activeRun.ownsTab = false;
+  } else {
+    const created = await browser.tabs.create({ url: "about:blank", active: false });
+    activeRun.tabId = created.id;
+    activeRun.ownsTab = true;
+  }
+  for (const title of titles) {
+    await openInRunTab(activeRun, MWE_SEARCH_PAGE);
+    await checkRunTab(activeRun);
+    await pause(randomBetween([3000, 6000]));
+    const [problem] = await browser.tabs.executeScript(activeRun.tabId, { code: mweSearchCode(title) });
+    if (problem) throw { code: ERRORS.runFailed, message: `Couldn't search Maryland Workforce Exchange for "${title}" (${problem}). Use Save this page for fixing on its search form.` };
+    await pause(randomBetween([6000, 10000])); // the results load and are saved as they appear
+    await checkRunTab(activeRun);
+    await mwePages(run, activeRun);
+    await pause(randomBetween(RUN_GAP_MS));
   }
 }
 

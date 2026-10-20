@@ -14,6 +14,7 @@ function sandbox({ titles = ["Web Designer", "Graphic Designer"], pagesAvailable
   const tabs = new Map();
   let nextTab = 1;
   let clicks = 0;
+  const searched = [];
   const context = {
     console, Date, Math, Promise, URLSearchParams,
     setTimeout: (fn) => setTimeout(fn, 0), clearTimeout,
@@ -24,6 +25,7 @@ function sandbox({ titles = ["Web Designer", "Graphic Designer"], pagesAvailable
     persist: () => Promise.resolve(), updateBadge: () => {}, flush: () => Promise.resolve(), settleFox: () => {},
     localDay: (date = new Date()) => date.toISOString().slice(0, 10),
     visited: [],
+    refreshProfile: async () => {},
     refreshFeed: async () => {
       if (feedError) context.state.errors.jobaps = { code: "E7010", message: "Could not read the feed" };
       else context.state.jobs["jobaps:1"] = { site: "jobaps" }, context.state.jobs["jobaps:2"] = { site: "jobaps" };
@@ -35,25 +37,29 @@ function sandbox({ titles = ["Web Designer", "Graphic Designer"], pagesAvailable
         onUpdated: { addListener: (fn) => listeners.add(fn), removeListener: (fn) => listeners.delete(fn) },
         create: async () => { const id = nextTab++; tabs.set(id, { id, url: "about:blank" }); return { id }; },
         update: async (id, { url }) => {
-          tabs.get(id).url = url;
+          const tab = tabs.get(id) || mweTabs.find((candidate) => candidate.id === id);
+          tab.url = url;
           context.visited.push(url);
           const key = `usajobs:${context.visited.length}`;
           context.state.jobs[key] = { site: "usajobs" };
           context.runSawJobs(id, [key], [key]);
           setTimeout(() => listeners.forEach((fn) => fn(id, { status: "complete" })), 0);
-          return tabs.get(id);
+          return tab;
         },
         get: async (id) => (tabs.get(id) || mweTabs.find((tab) => tab.id === id) || (() => { throw new Error("no tab"); })()),
         remove: async (id) => tabs.delete(id),
         query: async () => mweTabs,
         // the Maryland pager: clicks page numbers until the last one
-        executeScript: async () => { clicks += 1; return [clicks < pagesAvailable ? String(clicks + 1) : ""]; },
+        executeScript: async (tabId, { code }) => {
+          searched.push(code);
+          if (/no keyword box/.test(code)) return [""]; // the search form being filled in
+          clicks += 1; return [clicks < pagesAvailable ? String(clicks + 1) : ""]; },
       },
     },
   };
   vm.createContext(context);
   vm.runInContext(SOURCE, context);
-  return { context, tabs, clicks: () => clicks };
+  return { context, tabs, clicks: () => clicks, searched };
 }
 
 async function runSite(context, site) {
@@ -63,7 +69,7 @@ async function runSite(context, site) {
 }
 
 test("a Maryland run clicks the page numbers on the tab you opened and leaves that tab alone", async () => {
-  const { context, clicks } = sandbox({ pagesAvailable: 4 });
+  const { context, clicks } = sandbox({ titles: [], pagesAvailable: 4 });
   const run = await runSite(context, "mwe");
   assert.strictEqual(run.status, "done");
   assert.strictEqual(run.pages, 3); // pages 2, 3 and 4 after the page you were on
@@ -73,14 +79,14 @@ test("a Maryland run clicks the page numbers on the tab you opened and leaves th
 });
 
 test("a Maryland run without a results tab says what to do", async () => {
-  const { context } = sandbox({ mweTabs: [] });
+  const { context } = sandbox({ titles: [], mweTabs: [] });
   const run = await runSite(context, "mwe");
   assert.strictEqual(run.status, "stopped");
-  assert.match(run.message, /Open your Maryland Workforce Exchange search results first/);
+  assert.match(run.message, /no Maryland Workforce Exchange search results are open/);
 });
 
 test("a Maryland security check ends the run and blocks Maryland runs for the day, not LinkedIn's", async () => {
-  const { context } = sandbox({ mweTabs: [{ id: 7, url: "https://mwejobs.maryland.gov/vosnet/jobbanks/joblist.aspx?captcha=1" }] });
+  const { context } = sandbox({ titles: [], mweTabs: [{ id: 7, url: "https://mwejobs.maryland.gov/vosnet/jobbanks/joblist.aspx?captcha=1" }] });
   const run = await runSite(context, "mwe");
   assert.strictEqual(run.status, "stopped");
   assert.strictEqual(run.code, "E7007");
@@ -118,8 +124,20 @@ test("the State of Maryland run reads the feed and counts the jobs", async () =>
 });
 
 test("runs keep their site, and a stopped run's alert names it", async () => {
-  const { context } = sandbox({ mweTabs: [] });
+  const { context } = sandbox({ titles: [], mweTabs: [] });
   const run = await runSite(context, "mwe");
   assert.strictEqual(run.site, "mwe");
   assert.strictEqual(context.state.runAlert.site, "mwe");
+});
+
+test("a Maryland run types each Job Finder title into the search form, in your open tab", async () => {
+  const { context, clicks, searched } = sandbox({ pagesAvailable: 2 });
+  const run = await runSite(context, "mwe");
+  assert.strictEqual(run.status, "done", run.message);
+  assert.strictEqual(context.visited.length, 2); // the search form, once per title
+  assert.ok(context.visited.every((url) => /JobSearchCriteriaQuick\.aspx/.test(url)));
+  assert.ok(searched.some((code) => code.includes('"Web Designer"')));
+  assert.ok(searched.some((code) => code.includes('"Graphic Designer"')));
+  assert.strictEqual(run.pages, 1); // the stub offers one page number in all
+  assert.ok(clicks() > 0);
 });
