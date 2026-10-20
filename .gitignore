@@ -6,3 +6,6 @@ searches/
 
 node_modules/
 package-lock.json
+
+# Saved copies of job pages, kept for fixing parsers
+debug/
