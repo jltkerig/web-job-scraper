@@ -39,6 +39,7 @@ const RUN_COMPANY_PAGES = [
 const RUN_MAX_OPENED = 10; // new jobs opened per run for their details
 const RUN_GAP_MS = [20000, 45000]; // time between opening jobs, picked at random
 const RUN_PAGE_WAIT_MS = [12000, 20000]; // time on each list page for its jobs to load
+const RUN_SCROLL_WAIT_MS = [3000, 6000]; // time after each scroll of the tracker for more jobs to load
 const RUN_LOAD_TIMEOUT_MS = 45000;
 const RUN_KEEP = 20; // finished runs kept in the list
 // Pages that mean "stop now": signing in, or any LinkedIn security check.
@@ -204,6 +205,35 @@ async function readRunPage(activeRun, url) {
   return activeRun.seen.size > before;
 }
 
+// The tracker shows only its first cards; the rest load as the page is scrolled or "Show more" is pressed. Does that
+// until a round brings no new jobs (at most RUN_TRACKER_ROUNDS), so every applied job is read and can be compared with
+// what Job Finder already has.
+const RUN_TRACKER_ROUNDS = 25;
+async function loadWholeTracker(activeRun) {
+  let last = -1;
+  for (let round = 0; round < RUN_TRACKER_ROUNDS; round += 1) {
+    let count;
+    try {
+      [count] = await browser.tabs.executeScript(activeRun.tabId, {
+        code: `(() => {
+          window.scrollTo(0, document.documentElement.scrollHeight);
+          for (const node of document.querySelectorAll("button, a[role='button']")) {
+            if (/^\\s*(show|see|load) more\\b/i.test(node.textContent || "")) node.click();
+          }
+          return new Set([...document.querySelectorAll("a[href*='/jobs/view/']")]
+            .map((a) => (/\\/jobs\\/view\\/(\\d+)/.exec(a.href) || [])[1]).filter(Boolean)).size;
+        })()`,
+      });
+    } catch (error) {
+      return; // the page couldn't be scrolled: what loaded is still read
+    }
+    if (count === last) return;
+    last = count;
+    await pause(randomBetween(RUN_SCROLL_WAIT_MS));
+    await checkRunTab(activeRun);
+  }
+}
+
 // LinkedIn: the jobs home, every collection (page by page), the watched companies' pages and your tracker, then up to
 // 10 new jobs opened for their details.
 async function runLinkedin(run, activeRun) {
@@ -219,7 +249,10 @@ async function runLinkedin(run, activeRun) {
     }
   }
   for (const page of RUN_COMPANY_PAGES) await readRunPage(activeRun, page);
-  for (const page of RUN_OWN_PAGES) await readRunPage(activeRun, page);
+  for (const page of RUN_OWN_PAGES) {
+    await readRunPage(activeRun, page);
+    if (/[?&]stage=applied\b/.test(page)) await loadWholeTracker(activeRun);
+  }
   const toOpen = [...activeRun.fresh].map((key) => state.jobs[key])
     .filter((job) => job && job.level !== "opened" && !job.closed).slice(0, RUN_MAX_OPENED);
   for (const job of toOpen) {
