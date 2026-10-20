@@ -189,32 +189,32 @@ test("when distances can't be read, the same places aren't asked again every sec
 // card a clickable block tagged job-card-component-ref-<id> with no link inside, led by an accessible repeat of the title.
 const REAL = `<!doctype html><html><body><main><div data-testid="lazy-column" id="column">
   <div><p>Jobs based on your preferences</p><p>99+ results</p></div>
-  <div data-display-contents="true"><div><div data-display-contents="true"><div role="button" tabindex="0" componentkey="job-card-component-ref-4466104575">
-    <div componentkey="job-card-component-ref-4466104575"><p>Graphic Designer (Verified job)</p><p>Graphic Designer</p><p>Example Recruiting Group</p><p>Baltimore, MD (On-site)</p><p>$90K/yr - $110K/yr</p></div></div></div></div></div>
+  <div data-display-contents="true"><div><div data-display-contents="true"><div role="button" tabindex="0" componentkey="job-card-component-ref-4000000001">
+    <div componentkey="job-card-component-ref-4000000001"><p>Graphic Designer (Verified job)</p><p>Graphic Designer</p><p>Example Recruiting Group</p><p>Baltimore, MD (On-site)</p><p>$90K/yr - $110K/yr</p></div></div></div></div></div>
   <div></div>
-  <div data-display-contents="true"><div><div data-display-contents="true"><div role="button" tabindex="0" componentkey="job-card-component-ref-4460751737">
-    <div componentkey="job-card-component-ref-4460751737"><p>Selected, Graphic Designer</p><p>Graphic Designer</p><p>Sample Safety Co</p><p>United States (Remote)</p><p>401(k)</p></div></div></div></div></div>
+  <div data-display-contents="true"><div><div data-display-contents="true"><div role="button" tabindex="0" componentkey="job-card-component-ref-4000000002">
+    <div componentkey="job-card-component-ref-4000000002"><p>Selected, Graphic Designer</p><p>Graphic Designer</p><p>Sample Safety Co</p><p>United States (Remote)</p><p>401(k)</p></div></div></div></div></div>
   <div></div>
-  <div data-display-contents="true"><div><div data-display-contents="true"><div role="button" tabindex="0" componentkey="job-card-component-ref-4472661323">
-    <div componentkey="job-card-component-ref-4472661323"><p>Creative Content Specialist</p><p>Creative Content Specialist</p><p>City of Lancaster</p><p>Lancaster, PA</p></div></div></div></div></div>
+  <div data-display-contents="true"><div><div data-display-contents="true"><div role="button" tabindex="0" componentkey="job-card-component-ref-4000000003">
+    <div componentkey="job-card-component-ref-4000000003"><p>Creative Content Specialist</p><p>Creative Content Specialist</p><p>City of Springfield</p><p>Lancaster, PA</p></div></div></div></div></div>
   <div></div>
-  <a href="https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737"><p>Sam Example</p><p>• 3rd+</p></a>
+  <a href="https://www.linkedin.com/jobs/search-results/?currentJobId=4000000002"><p>Sam Example</p><p>• 3rd+</p></a>
 </div></main></body></html>`;
 
 test("LinkedIn's 2026 cards (no links inside) are read: titles, companies, towns, remote, and no person mistaken for a job", () => {
   const parse = globalThis.LinkedInParse;
-  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4000000002";
   const found = parse.cards(new JSDOM(REAL, { url }).window.document, url).map(({ job }) => job);
-  assert.deepStrictEqual(found.map((job) => job.job_id), ["4466104575", "4460751737", "4472661323"]);
+  assert.deepStrictEqual(found.map((job) => job.job_id), ["4000000001", "4000000002", "4000000003"]);
   assert.deepStrictEqual(found.map((job) => job.title), ["Graphic Designer", "Graphic Designer", "Creative Content Specialist"]);
-  assert.deepStrictEqual(found.map((job) => job.company), ["Example Recruiting Group", "Sample Safety Co", "City of Lancaster"]);
+  assert.deepStrictEqual(found.map((job) => job.company), ["Example Recruiting Group", "Sample Safety Co", "City of Springfield"]);
   assert.deepStrictEqual(found.map((job) => job.location), ["Baltimore, MD (On-site)", "United States (Remote)", "Lancaster, PA"]);
   assert.deepStrictEqual(found.map((job) => job.work_arrangement), ["On-site", "Remote", ""]);
   assert.strictEqual(found[0].salary, "$90K/yr - $110K/yr");
 });
 
 test("on the 2026 layout: Fit tags, 'Remote' first then nearest, unknown last, remote tagged", async () => {
-  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4000000002";
   const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
   window.browser = { runtime: { sendMessage: async () => ({ places: { "Baltimore, MD (On-site)": { minutes: 45, text: "21 mi · ~45 min" },
       "Lancaster, PA": { minutes: 75, text: "39 mi · ~75 min" } } }) },
@@ -227,7 +227,7 @@ test("on the 2026 layout: Fit tags, 'Remote' first then nearest, unknown last, r
   const slots = Array.from(window.document.querySelectorAll("#column > div")).filter((d) => d.querySelector("[componentkey]"));
   const order = slots.map((slot) => [slot.querySelector("[componentkey]").getAttribute("componentkey").slice(-4), Number(slot.style.order)])
     .sort((a, b) => a[1] - b[1]).map(([id]) => id);
-  assert.deepStrictEqual(order, ["1737", "4575", "1323"]); // remote, then 45 min, then 75 min
+  assert.deepStrictEqual(order, ["0002", "0001", "0003"]); // remote, then 45 min, then 75 min
   const labels = Array.from(window.document.querySelectorAll("wjs-fit-tag[data-distance]"), (tag) => tag.dataset.label).sort();
   assert.deepStrictEqual(labels, ["21 mi · ~45 min", "39 mi · ~75 min", "Remote"]);
   assert.strictEqual(window.document.querySelectorAll("[data-wjs-fit]").length, 2); // both Graphic Designer cards fit
@@ -235,7 +235,7 @@ test("on the 2026 layout: Fit tags, 'Remote' first then nearest, unknown last, r
 });
 
 function hidingPage({ hidden = [], blocked = [] } = {}) {
-  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4000000002";
   const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
   const stored = { hiddenCompanies: hidden, fitProfile: { titles: ["Graphic Designer"], skills: [], work_preferences: [], blocked_companies: blocked }, sortByDistance: true };
   const saves = [], listeners = [];
@@ -252,7 +252,7 @@ const slotOf = (window, id) => window.document.querySelector(`[componentkey='job
 test("every card gets a Fit tag AND a hide button; the Fit tag isn't lost when a distance tag is there", async () => {
   const { window } = hidingPage();
   await new Promise((resolve) => setTimeout(resolve, 900));
-  const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4466104575']");
+  const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4000000001']");
   const fitTab = card.querySelector("wjs-fit-tag[data-fit]"); // a green tab like "Remote", beside it in one row
   assert.ok(fitTab);
   assert.match(fitTab.shadowRoot.textContent, /^(?:Good|Possible) Fit$/);
@@ -270,39 +270,39 @@ test("every card gets a Fit tag AND a hide button; the Fit tag isn't lost when a
 test("the X hides every job from that company, remembers it, and never clicks the card", async () => {
   const { window, saves } = hidingPage();
   await new Promise((resolve) => setTimeout(resolve, 900));
-  const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4460751737']");
+  const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4000000002']");
   let cardClicked = false;
   card.addEventListener("click", () => { cardClicked = true; });
   card.querySelector("wjs-fit-tag[data-hide]").shadowRoot.querySelector("button").click();
   await new Promise((resolve) => setTimeout(resolve, 900));
   assert.deepStrictEqual([...saves.at(-1).hiddenCompanies], ["Sample Safety Co"]);
   assert.strictEqual(cardClicked, false);
-  assert.strictEqual(slotOf(window, "4460751737").style.getPropertyValue("display"), "none");
-  assert.notStrictEqual(slotOf(window, "4466104575").style.getPropertyValue("display"), "none"); // others stay
+  assert.strictEqual(slotOf(window, "4000000002").style.getPropertyValue("display"), "none");
+  assert.notStrictEqual(slotOf(window, "4000000001").style.getPropertyValue("display"), "none"); // others stay
   window.close();
 });
 
 test("companies you hid before, and ones blocked in Job Finder, are hidden on load (spelling and case don't matter)", async () => {
-  const { window } = hidingPage({ hidden: ["city of  LANCASTER"], blocked: ["example recruiting group"] });
+  const { window } = hidingPage({ hidden: ["city of  SPRINGFIELD"], blocked: ["example recruiting group"] });
   await new Promise((resolve) => setTimeout(resolve, 900));
-  assert.strictEqual(slotOf(window, "4472661323").style.getPropertyValue("display"), "none");
-  assert.strictEqual(slotOf(window, "4466104575").style.getPropertyValue("display"), "none");
-  assert.notStrictEqual(slotOf(window, "4460751737").style.getPropertyValue("display"), "none");
+  assert.strictEqual(slotOf(window, "4000000003").style.getPropertyValue("display"), "none");
+  assert.strictEqual(slotOf(window, "4000000001").style.getPropertyValue("display"), "none");
+  assert.notStrictEqual(slotOf(window, "4000000002").style.getPropertyValue("display"), "none");
   window.close();
 });
 
 test("taking a company out of the hidden list (the panel's Unhide) brings its cards back", async () => {
-  const { window, listeners } = hidingPage({ hidden: ["City of Lancaster"] });
+  const { window, listeners } = hidingPage({ hidden: ["City of Springfield"] });
   await new Promise((resolve) => setTimeout(resolve, 900));
-  assert.strictEqual(slotOf(window, "4472661323").style.getPropertyValue("display"), "none");
+  assert.strictEqual(slotOf(window, "4000000003").style.getPropertyValue("display"), "none");
   for (const listener of listeners) listener({ hiddenCompanies: { newValue: [] } }, "local"); // what Firefox sends the page
   await new Promise((resolve) => setTimeout(resolve, 900));
-  assert.notStrictEqual(slotOf(window, "4472661323").style.getPropertyValue("display"), "none");
+  assert.notStrictEqual(slotOf(window, "4000000003").style.getPropertyValue("display"), "none");
   window.close();
 });
 
 test("with no profile the page says so, asks for it at once, and marks the cards when it arrives", async () => {
-  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4000000002";
   const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
   const stored = { hiddenCompanies: [], sortByDistance: true };
   const asked = [];
@@ -324,7 +324,7 @@ test("with no profile the page says so, asks for it at once, and marks the cards
 });
 
 test("when Job Finder cannot be reached the page says why instead of staying silent", async () => {
-  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4000000002";
   const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
   window.browser = { runtime: { sendMessage: async (message) => (message.type === "fit-profile-now"
       ? { titles: 0, error: "Job Finder isn't running, so the fit markers use the last copy of your profile." } : { places: {} }) },
@@ -342,7 +342,7 @@ test("when Job Finder cannot be reached the page says why instead of staying sil
 test("only the red X stays: LinkedIn's own dismiss button is hidden, and the X is drawn centered", async () => {
   const { window } = hidingPage();
   await new Promise((resolve) => setTimeout(resolve, 900));
-  const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4460751737']");
+  const card = window.document.querySelector("[role='button'][componentkey='job-card-component-ref-4000000002']");
   assert.ok(card.hasAttribute("data-wjs-card"));
   const css = Array.from(window.document.querySelectorAll("style")).map((s) => s.textContent).join("\n");
   assert.match(css, /\[data-wjs-card\] button\[aria-label\^="Dismiss "\]\[aria-label\$=" job"\] \{ display: none !important/);
@@ -355,7 +355,7 @@ test("only the red X stays: LinkedIn's own dismiss button is hidden, and the X i
 });
 
 test("the profile notice sits above the fox's strip instead of behind it, and drops back when the fox is minimized", async () => {
-  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4000000002";
   const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
   const fox = window.document.createElement("div"); // stands in for the fox's strip along the bottom
   fox.setAttribute("data-wjs-fox-host", "");
@@ -380,7 +380,7 @@ test("the profile notice sits above the fox's strip instead of behind it, and dr
 });
 
 test("the notice asks again by itself and goes away once Job Finder answers", async () => {
-  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4460751737";
+  const url = "https://www.linkedin.com/jobs/search-results/?currentJobId=4000000002";
   const window = new JSDOM(REAL, { url, pretendToBeVisual: true, runScripts: "outside-only" }).window;
   const stored = {};
   let up = false, asks = 0;
