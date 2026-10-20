@@ -33,6 +33,11 @@
     return isDetailPage(pageUrl) || /\/search\/results/i.test(String(pageUrl || ""));
   }
 
+  // A search that found nothing shows a "No jobs found" box (id no-search-results) in place of the list.
+  function noResults(doc) {
+    return Boolean(doc.getElementById("no-search-results"));
+  }
+
   function onJobsPage(loc) {
     return /^\/(?:search|job)(?:\/|$)/i.test(loc.pathname);
   }
@@ -160,6 +165,6 @@
     return isDetailPage(pageUrl) && jobs.length === 1 ? jobs[0].job_id : null;
   }
 
-  root.UsajobsParse = { SITE, NAME: "USAJOBS", jobUrl, idFromUrl, fromDom, expectsJobs, onJobsPage, pageKind, detailId, place };
+  root.UsajobsParse = { SITE, NAME: "USAJOBS", jobUrl, idFromUrl, fromDom, expectsJobs, noResults, onJobsPage, pageKind, detailId, place };
   root.CaptureParse = root.UsajobsParse;
 })(typeof globalThis !== "undefined" ? globalThis : this);

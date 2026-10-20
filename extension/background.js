@@ -445,7 +445,7 @@ async function pageSettled(site, message, tabId) {
     if (real) await autoSample(real, tabId, message.pageUrl);
     return;
   }
-  if (!message.expectsJobs || !state.settings.enabled[site]) return;
+  if (!message.expectsJobs || message.emptyResults || !state.settings.enabled[site]) return;
   if (message.found === 0 && (tabCounts.get(tabId) || 0) === 0) {
     state.broken[site] = { url: message.pageUrl, since: new Date().toISOString() };
     persistSoon();

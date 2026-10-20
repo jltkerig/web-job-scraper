@@ -55,6 +55,8 @@
       scan();
       browser.runtime.sendMessage({
         type: "page-settled", site: parse.SITE, pageUrl, found: foundOnPage, expectsJobs: parse.expectsJobs(pageUrl),
+        // The site itself says the search found nothing: not a broken reader.
+        emptyResults: Boolean(parse.noResults && parse.noResults(document)),
         // The job open on this page (its own page, or a details pane next to a list), so the background can check
         // that its details were read.
         detailJobId: parse.detailId(pageUrl, lastJobs),

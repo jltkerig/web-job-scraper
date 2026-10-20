@@ -109,3 +109,10 @@ test("a page saved for fixing has no scripts and nothing typed into a field", ()
     dom.window.close();
   });
 });
+
+test("a search that found nothing is recognised, so it isn't reported as a broken reader", () => {
+  const empty = { getElementById: (id) => (id === "no-search-results" ? {} : null) };
+  const listed = { getElementById: () => null };
+  assert.strictEqual(parse.noResults(empty), true);
+  assert.strictEqual(parse.noResults(listed), false);
+});
