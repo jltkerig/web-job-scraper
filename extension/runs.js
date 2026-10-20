@@ -49,7 +49,13 @@ const MWE_PAGES = 15; // most page numbers clicked in one run
 const MWE_GAP_MS = [25000, 60000]; // time on each Maryland page before the next number is clicked
 const SECURITY_PAGE = /linkedin\.com\/(?:checkpoint|captcha|security|challenge)/i;
 
-let activeRun = null; // { id, tabId, seen: Set, fresh: Set, stopped: { code, message } | null }
+// One run at a time per site, so different sites can run together: site -> { id, site, tabId, seen: Set, fresh: Set, stopped: { code, message } | null }
+const activeRuns = new Map();
+
+function runForTab(tabId) {
+  for (const active of activeRuns.values()) if (active.tabId === tabId) return active;
+  return null;
+}
 
 function randomBetween([low, high]) {
   return low + Math.random() * (high - low);
@@ -122,7 +128,7 @@ function finishRun(run, status, code, message) {
 }
 
 // Opens a page in the run's tab and waits for it to finish loading.
-function openInRunTab(url) {
+function openInRunTab(activeRun, url) {
   if (activeRun.stopped) return Promise.reject(activeRun.stopped);
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -150,7 +156,7 @@ function pause(ms) {
 
 // The "Show all" links on the jobs home ("More jobs for you", "Jobs that match your profile", "Jobs based on your
 // preferences" and the rest): every collection the page points to, so lists LinkedIn adds later are read too.
-async function collectionLinks() {
+async function collectionLinks(activeRun) {
   try {
     const [hrefs] = await browser.tabs.executeScript(activeRun.tabId, {
       code: "[...document.querySelectorAll('a[href*=\"/jobs/collections/\"]')].map((a) => a.href)",
@@ -167,7 +173,7 @@ async function collectionLinks() {
 }
 
 // After every page: a sign-in page or a security check ends the run at once.
-async function checkRunTab() {
+async function checkRunTab(activeRun) {
   if (activeRun.stopped) throw activeRun.stopped;
   let tab;
   try {
@@ -185,40 +191,40 @@ async function checkRunTab() {
 }
 
 // One page of a run: open it, give it time to load its jobs, and say whether it brought jobs not seen yet this run.
-async function readRunPage(url) {
+async function readRunPage(activeRun, url) {
   const before = activeRun.seen.size;
-  await openInRunTab(url);
-  await checkRunTab();
+  await openInRunTab(activeRun, url);
+  await checkRunTab(activeRun);
   await pause(randomBetween(RUN_PAGE_WAIT_MS));
-  await checkRunTab();
+  await checkRunTab(activeRun);
   return activeRun.seen.size > before;
 }
 
 // LinkedIn: the jobs home, every collection (page by page), the watched companies' pages and your tracker, then up to
 // 10 new jobs opened for their details.
-async function runLinkedin(run) {
+async function runLinkedin(run, activeRun) {
   const lists = new Set(RUN_COLLECTIONS);
   for (const page of RUN_PAGES) {
-    await readRunPage(page);
-    for (const found of await collectionLinks()) lists.add(found);
+    await readRunPage(activeRun, page);
+    for (const found of await collectionLinks(activeRun)) lists.add(found);
   }
   for (const list of lists) {
     for (let index = 0; index < RUN_LIST_PAGES; index += 1) {
       const url = index ? `${list}?start=${index * RUN_LIST_STEP}` : list;
-      if (!(await readRunPage(url))) break; // nothing new: the list has run out (or doesn't exist)
+      if (!(await readRunPage(activeRun, url))) break; // nothing new: the list has run out (or doesn't exist)
     }
   }
-  for (const page of RUN_COMPANY_PAGES) await readRunPage(page);
-  for (const page of RUN_OWN_PAGES) await readRunPage(page);
+  for (const page of RUN_COMPANY_PAGES) await readRunPage(activeRun, page);
+  for (const page of RUN_OWN_PAGES) await readRunPage(activeRun, page);
   const toOpen = [...activeRun.fresh].map((key) => state.jobs[key])
     .filter((job) => job && job.level !== "opened" && !job.closed).slice(0, RUN_MAX_OPENED);
   for (const job of toOpen) {
     await pause(randomBetween(RUN_GAP_MS));
-    await checkRunTab();
-    await openInRunTab(job.url);
-    await checkRunTab();
+    await checkRunTab(activeRun);
+    await openInRunTab(activeRun, job.url);
+    await checkRunTab(activeRun);
     await pause(randomBetween(RUN_PAGE_WAIT_MS)); // time on the job's page for its details to be read
-    await checkRunTab();
+    await checkRunTab(activeRun);
     run.opened += 1;
     persist();
   }
@@ -226,7 +232,7 @@ async function runLinkedin(run) {
 
 // USAJOBS: your Job Finder titles (up to USAJOBS_TITLES), searched in Maryland, a few result pages each. The titles are
 // asked for again first, so a title added in Job Finder since the last daily check is searched too.
-async function runUsajobs(run) {
+async function runUsajobs(run, activeRun) {
   await refreshProfile(true).catch(() => {}); // Job Finder not open: the titles already kept are used
   const saved = await browser.storage.local.get("fitProfile");
   const titles = ((saved.fitProfile && saved.fitProfile.titles) || []).slice(0, USAJOBS_TITLES);
@@ -236,7 +242,7 @@ async function runUsajobs(run) {
   for (const title of titles) {
     for (let page = 1; page <= USAJOBS_PAGES; page += 1) {
       const url = `https://www.usajobs.gov/search/results/?${new URLSearchParams({ k: title, l: "Maryland", p: String(page) })}`;
-      if (!(await readRunPage(url)) && page > 1) break;
+      if (!(await readRunPage(activeRun, url)) && page > 1) break;
       await pause(randomBetween(RUN_GAP_MS));
     }
   }
@@ -244,7 +250,7 @@ async function runUsajobs(run) {
 
 // Maryland Workforce Exchange: starts from the search results you opened yourself (set your search terms first) and
 // clicks the site's own page numbers 2, 3, 4... one at a time, with a pause between each. Its tab stays yours.
-async function runMwe(run) {
+async function runMwe(run, activeRun) {
   const tabs = await browser.tabs.query({ url: ["https://mwejobs.maryland.gov/*", "https://www.mwejobs.maryland.gov/*"] });
   const tab = tabs.find((candidate) => /\/jobbanks\/joblist\.aspx/i.test(candidate.url || ""));
   if (!tab) {
@@ -254,7 +260,7 @@ async function runMwe(run) {
   activeRun.ownsTab = false;
   await pause(randomBetween([3000, 6000]));
   for (let step = 0; step < MWE_PAGES; step += 1) {
-    await checkRunTab();
+    await checkRunTab(activeRun);
     const [clicked] = await browser.tabs.executeScript(tab.id, {
       code: `(() => {
         const active = document.querySelector("ul.pagination li.active");
@@ -269,13 +275,13 @@ async function runMwe(run) {
     if (!clicked) break; // no further page number: the last page has been read
     run.pages = (run.pages || 0) + 1;
     await pause(randomBetween(MWE_GAP_MS)); // the page's jobs load and are saved as they appear
-    await checkRunTab();
+    await checkRunTab(activeRun);
     persist();
   }
 }
 
 // The State of Maryland's job feed: one request for every open job, no browsing.
-async function runJobaps(run) {
+async function runJobaps(run, activeRun) {
   const before = new Set(Object.keys(state.jobs));
   await refreshFeed();
   if (state.errors.jobaps) throw { code: ERRORS.feed, message: state.errors.jobaps.message };
@@ -292,8 +298,8 @@ async function startRun(id) {
   if (!run || run.status !== "scheduled") return;
   const site = run.site || "linkedin";
   const name = SITE_NAMES[site] || site;
-  if (activeRun) {
-    finishRun(run, "stopped", ERRORS.runFailed, "Another run was still going.");
+  if (activeRuns.has(site)) {
+    finishRun(run, "stopped", ERRORS.runFailed, `Another ${name} run was still going.`);
     return;
   }
   if (site === "linkedin" ? state.securityCheckDay === localDay() : (state.siteBlockedDay || {})[site] === localDay()) {
@@ -315,9 +321,10 @@ async function startRun(id) {
       return;
     }
   }
-  activeRun = { id, site, tabId: tab ? tab.id : null, ownsTab: Boolean(tab), seen: new Set(), fresh: new Set(), stopped: null };
+  const activeRun = { id, site, tabId: tab ? tab.id : null, ownsTab: Boolean(tab), seen: new Set(), fresh: new Set(), stopped: null };
+  activeRuns.set(site, activeRun);
   try {
-    await RUN_SITES[site](run);
+    await RUN_SITES[site](run, activeRun);
     run.seen = activeRun.seen.size;
     run.fresh = activeRun.fresh.size;
     const parts = [`${run.seen} jobs`, `${run.fresh} new`];
@@ -331,7 +338,7 @@ async function startRun(id) {
     finishRun(run, "stopped", code, problem && problem.message ? problem.message : String(problem));
   } finally {
     const { tabId, ownsTab } = activeRun;
-    activeRun = null;
+    activeRuns.delete(site);
     if (tabId !== null && ownsTab) browser.tabs.remove(tabId).catch(() => {});
     else if (tabId !== null) settleFox(tabId);
     flush(true);
@@ -342,17 +349,19 @@ async function startRun(id) {
 
 // Jobs read from the run's tab count toward its result.
 function runSawJobs(tabId, keys, freshKeys) {
-  if (!activeRun || tabId !== activeRun.tabId) return;
+  const activeRun = runForTab(tabId);
+  if (!activeRun) return;
   for (const key of keys) activeRun.seen.add(key);
   for (const key of freshKeys) activeRun.fresh.add(key);
 }
 
 function isRunTab(tabId) {
-  return Boolean(activeRun && tabId === activeRun.tabId);
+  return Boolean(runForTab(tabId));
 }
 
 function runTabClosed(tabId) {
-  if (isRunTab(tabId)) activeRun.stopped = { code: ERRORS.runTabClosed, message: "The run's tab was closed." };
+  const activeRun = runForTab(tabId);
+  if (activeRun) activeRun.stopped = { code: ERRORS.runTabClosed, message: "The run's tab was closed." };
 }
 
 function runsForPopup() {
