@@ -10,8 +10,7 @@ const SITES = {
   // The Maryland Workforce Exchange allows no automated visitors, so only pages you open are read.
   mwe: { name: "Maryland Workforce Exchange", parse: globalThis.MweParse, api: null,
     hosts: ["mwejobs.maryland.gov", "www.mwejobs.maryland.gov"] },
-  // Indeed doesn't allow automated visitors either, so only pages you open are read (its job data sits in script variables
-  // on the page, see sites/indeed-parse.js).
+  // Indeed pages are read as they load (its job data sits in script variables on the page, see sites/indeed-parse.js).
   indeed: { name: "Indeed", parse: globalThis.IndeedParse, api: null,
     hosts: ["www.indeed.com", "indeed.com"] },
   // Like the Maryland exchange, USAJOBS blocks automated visitors, so only pages you open are read.

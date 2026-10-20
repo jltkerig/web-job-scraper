@@ -106,7 +106,7 @@ function show(result) {
         el("div", { className: "hint", textContent: "Your jobs are kept; it tries again at the next save, or click Save now." }),
       ]));
     }
-    if (site !== "indeed") card.append(runBlock(site));
+    card.append(runBlock(site));
     sitesBox.append(card);
   }
   showRuns(result);
@@ -142,6 +142,7 @@ const TAGS = { scheduled: "Scheduled", running: "Running", done: "Done", stopped
 const RUN_HINTS = {
   linkedin: "At the time you pick, Firefox opens LinkedIn's recommended jobs in a background tab, collects them, opens up to 10 new ones for details, then closes the tab. Firefox must be open.",
   mwe: "A run types each of your Job Finder titles into the Maryland Workforce Exchange search in your Firefox, then clicks the page numbers 2, 3, 4… one at a time with a pause between each, while the jobs are saved. It uses your open Maryland tab and leaves it open; with none open it uses its own.",
+  indeed: "A run types each of your Job Finder titles (with Maryland) into Indeed's search in your Firefox, then clicks the next-page arrow a few times with a pause between each, while the jobs are saved. It uses your open Indeed tab and leaves it open; with none open it uses its own.",
   usajobs: "Firefox opens USAJOBS searches for each of your Job Finder titles in Maryland (a few result pages each, so it can take a while) in a background tab, collects the jobs, then closes the tab.",
   jobaps: "Reads the State of Maryland's job feed once (one request, nothing is browsed). This also happens by itself every few hours.",
 };
@@ -212,7 +213,7 @@ function showRuns(result) {
     for (const run of mine) {
       const when = new Date(run.when).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
       let detail = run.message || "";
-      if (run.status === "running") detail = run.site === "mwe" ? `${run.pages || 0} pages read so far` : `${run.opened || 0} opened so far`;
+      if (run.status === "running") detail = run.site === "mwe" || run.site === "indeed" ? `${run.pages || 0} pages read so far` : `${run.opened || 0} opened so far`;
       if (run.status === "stopped" && run.code) detail = `[${run.code}] ${detail}`;
       if (run.late && run.status !== "scheduled") detail = `ran late (Firefox was closed) · ${detail}`;
       const item = el("li", {}, [

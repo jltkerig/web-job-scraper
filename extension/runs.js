@@ -45,13 +45,17 @@ const RUN_KEEP = 20; // finished runs kept in the list
 // Pages that mean "stop now": signing in, or any LinkedIn security check.
 const SIGN_IN_PAGE = /linkedin\.com\/(?:login|uas\/login|authwall|signup)/i;
 const OTHER_SECURITY_PAGE = /captcha|challenge|access-?denied|blocked|forbidden|unusual-?traffic/i; // USAJOBS and Maryland
-const SITE_NAMES = { linkedin: "LinkedIn", usajobs: "USAJOBS", mwe: "Maryland Workforce Exchange", jobaps: "State of Maryland jobs" };
+const SITE_NAMES = { linkedin: "LinkedIn", usajobs: "USAJOBS", mwe: "Maryland Workforce Exchange", indeed: "Indeed", jobaps: "State of Maryland jobs" };
 const USAJOBS_TITLES = 15; // most Job Finder titles searched on USAJOBS (a run takes longer with more)
 const USAJOBS_PAGES = 3;
 const MWE_TITLES = 15; // most Job Finder titles searched on Maryland Workforce Exchange
 const MWE_SEARCH_PAGE = "https://mwejobs.maryland.gov/vosnet/JobBanks/JobSearchCriteriaQuick.aspx";
 const MWE_PAGES = 15; // most page numbers clicked in one run
 const MWE_GAP_MS = [25000, 60000]; // time on each Maryland page before the next number is clicked
+const INDEED_TITLES = 10; // most Job Finder titles searched on Indeed
+const INDEED_SEARCH_PAGE = "https://www.indeed.com/";
+const INDEED_PAGES = 4; // most "next page" clicks per title
+const INDEED_GAP_MS = [25000, 60000]; // time on each Indeed page before the next one is clicked
 const SECURITY_PAGE = /linkedin\.com\/(?:checkpoint|captcha|security|challenge)/i;
 
 // One run at a time per site, so different sites can run together: site -> { id, site, tabId, seen: Set, fresh: Set, stopped: { code, message } | null }
@@ -374,6 +378,77 @@ async function runMwe(run, activeRun) {
   }
 }
 
+// Clicks Indeed's own "next page" arrow, one page at a time, with a pause between each.
+async function indeedPages(run, activeRun) {
+  for (let step = 0; step < INDEED_PAGES; step += 1) {
+    await checkRunTab(activeRun);
+    const [clicked] = await browser.tabs.executeScript(activeRun.tabId, {
+      code: `(() => {
+        const next = document.querySelector("a[data-testid='pagination-page-next'], a[aria-label='Next Page'], a[aria-label='Next']");
+        if (!next) return false;
+        next.click();
+        return true;
+      })()`,
+    });
+    if (!clicked) break; // no next arrow: the last page has been read
+    run.pages = (run.pages || 0) + 1;
+    await pause(randomBetween(INDEED_GAP_MS)); // the page's jobs load and are saved as they appear
+    await checkRunTab(activeRun);
+    persist();
+  }
+}
+
+// Types a title and Maryland into Indeed's search boxes and presses Find jobs. Returns "" when done, or why not.
+function indeedSearchCode(title) {
+  return `(() => {
+    const fill = (el, value) => {
+      el.focus();
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    const what = document.querySelector("#text-input-what, input[name='q']");
+    if (!what) return "no job title box";
+    fill(what, ${JSON.stringify(title)});
+    const where = document.querySelector("#text-input-where, input[name='l']");
+    if (where) fill(where, "Maryland");
+    const go = document.querySelector("button[type=submit]") ||
+      [...document.querySelectorAll("button")].find((el) => /find jobs|search/i.test(el.textContent || ""));
+    if (!go) return "no Find jobs button";
+    go.click();
+    return "";
+  })()`;
+}
+
+// Indeed: each of your Job Finder titles is typed into Indeed's search (in your Firefox, at a human pace), then its "next
+// page" arrow is clicked a few times. Uses your open Indeed tab and leaves it open; with none open it uses its own.
+async function runIndeed(run, activeRun) {
+  const titles = await jobFinderTitles(INDEED_TITLES);
+  if (!titles.length) {
+    throw { code: ERRORS.runFailed, message: "No job titles yet. In the panel, click Check now under Fit markers so Job Finder's titles are loaded." };
+  }
+  const tabs = await browser.tabs.query({ url: ["https://www.indeed.com/*", "https://indeed.com/*"] });
+  if (tabs.length) {
+    activeRun.tabId = tabs[0].id;
+    activeRun.ownsTab = false;
+  } else {
+    const created = await browser.tabs.create({ url: "about:blank", active: false });
+    activeRun.tabId = created.id;
+    activeRun.ownsTab = true;
+  }
+  for (const title of titles) {
+    await openInRunTab(activeRun, INDEED_SEARCH_PAGE);
+    await checkRunTab(activeRun);
+    await pause(randomBetween([3000, 6000]));
+    const [problem] = await browser.tabs.executeScript(activeRun.tabId, { code: indeedSearchCode(title) });
+    if (problem) throw { code: ERRORS.runFailed, message: `Couldn't search Indeed for "${title}" (${problem}). Use Save this page for fixing on Indeed's home page.` };
+    await pause(randomBetween([6000, 10000])); // the results load and are saved as they appear
+    await checkRunTab(activeRun);
+    await indeedPages(run, activeRun);
+    await pause(randomBetween(RUN_GAP_MS));
+  }
+}
+
 // The State of Maryland's job feed: one request for every open job, no browsing.
 async function runJobaps(run, activeRun) {
   const before = new Set(Object.keys(state.jobs));
@@ -384,7 +459,7 @@ async function runJobaps(run, activeRun) {
   activeRun.fresh = new Set(keys.filter((key) => !before.has(key)));
 }
 
-const RUN_SITES = { linkedin: runLinkedin, usajobs: runUsajobs, mwe: runMwe, jobaps: runJobaps };
+const RUN_SITES = { linkedin: runLinkedin, usajobs: runUsajobs, mwe: runMwe, indeed: runIndeed, jobaps: runJobaps };
 
 async function startRun(id) {
   await ready;
@@ -427,7 +502,7 @@ async function startRun(id) {
     run.fresh = activeRun.fresh.size;
     const parts = [`${run.seen} jobs`, `${run.fresh} new`];
     if (site === "linkedin") parts.push(`${run.opened} opened for details`);
-    if (site === "mwe") parts.push(`${run.pages || 0} more pages read`);
+    if (site === "mwe" || site === "indeed") parts.push(`${run.pages || 0} more pages read`);
     finishRun(run, "done", null, parts.join(", "));
   } catch (problem) {
     run.seen = activeRun.seen.size;
