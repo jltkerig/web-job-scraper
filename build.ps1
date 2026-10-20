@@ -21,3 +21,6 @@ try {
     $zip.Dispose()
 }
 Write-Output "Built $target"
+
+# Only the newest build is kept.
+Get-ChildItem $dist -Filter "web-job-scraper-v*.xpi" | Where-Object { $_.FullName -ne $target } | Remove-Item -Force
