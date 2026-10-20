@@ -22,5 +22,5 @@ try {
 }
 Write-Output "Built $target"
 
-# Only the newest build is kept.
-Get-ChildItem $dist -Filter "web-job-scraper-v*.xpi" | Where-Object { $_.FullName -ne $target } | Remove-Item -Force
+# The 5 newest builds are kept.
+Get-ChildItem $dist -Filter "web-job-scraper-v*.xpi" | Sort-Object LastWriteTime -Descending | Select-Object -Skip 5 | Remove-Item -Force
