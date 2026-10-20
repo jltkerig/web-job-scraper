@@ -463,13 +463,17 @@
     }
     // On the job tracker, every card is one of your jobs; the only ticked stage says which kind (Saved, Applied).
     let pagePath = "";
+    let urlStage = "";
     try {
-      pagePath = new URL(pageUrl).pathname;
+      const parsed = new URL(pageUrl);
+      pagePath = parsed.pathname;
+      urlStage = (parsed.searchParams.get("stage") || "").replace(/[_-]/g, " ").toLowerCase();
     } catch (error) {
       pagePath = "";
     }
     if (TRACKER_PATH.test(pagePath)) {
-      const stage = trackerStage(doc);
+      // The ticked box says the stage; the page's own ?stage=applied link stands in when no box can be read.
+      const stage = trackerStage(doc) || (TRACKER_STAGES.includes(urlStage) ? urlStage : "");
       for (const tracked of trackerCards(doc)) {
         const job = jobs.get(tracked.job_id) || tracked;
         for (const field of ["title", "company", "location", "work_arrangement", "posted"]) {

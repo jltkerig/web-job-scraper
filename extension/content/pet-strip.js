@@ -41,7 +41,7 @@
 
   function onJobsPage() {
     if (SITE !== "linkedin") return true; // every page of the other sites
-    return /^\/jobs(?:\/|$)/i.test(location.pathname); // the Jobs section; not /jobs-tracker/, which has its own layout
+    return /^\/jobs(?:-tracker)?(?:\/|$)/i.test(location.pathname); // the Jobs section and the job tracker
   }
 
   function wanted() {

@@ -9,9 +9,11 @@
 const RUN_PAGES = [
   "https://www.linkedin.com/jobs/", // "Top job picks for you"
 ];
-// Your own jobs: the tracker lists the ones you saved (Job Finder puts those on its Apply Queue). Read after the rest.
+// Your own jobs: the tracker lists the ones you saved (Job Finder puts those on its Apply Queue) and the ones you
+// applied to (checked for closed listings). Read after the rest.
 const RUN_OWN_PAGES = [
   "https://www.linkedin.com/jobs-tracker/",
+  "https://www.linkedin.com/jobs-tracker/?stage=applied",
 ];
 // LinkedIn's job collections (the lists under "More jobs for you"). Each is read page by page (RUN_LIST_STEP jobs
 // a page) until a page brings no jobs it hadn't seen this run, or RUN_LIST_PAGES pages. A collection LinkedIn
