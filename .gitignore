@@ -9,3 +9,6 @@ package-lock.json
 
 # Saved copies of job pages, kept for fixing parsers
 debug/
+
+# Your own home for the profile tests (see tests/home-fixture.js)
+tests/home-fixture.local.js

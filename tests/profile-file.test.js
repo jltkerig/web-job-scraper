@@ -5,6 +5,7 @@ const assert = require("node:assert");
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
+const fixture = require("./home-fixture.js");
 
 // background.js with a stand-in browser: every API is a do-nothing function, storage is a plain object.
 function loadBackground() {
@@ -32,32 +33,29 @@ function loadBackground() {
 }
 
 const profile = { source: "job-finder", kind: "fit-profile", titles: ["Web Designer"], skills: ["HTML", "CSS"], work_preferences: [],
-  blocked_companies: [], skill_aliases: {}, ambiguous_skills: [], home: { zip: "17101", state: "MD", lat: 40.2759, lon: -76.885 } };
+  blocked_companies: [], skill_aliases: {}, ambiguous_skills: [], home: fixture.home };
 
 test("a profile file is checked before it is kept", async () => {
   const { context, store } = loadBackground();
   assert.strictEqual((await context.loadProfileFile({ titles: ["x"] })).ok, false);
   const reply = await context.loadProfileFile(profile);
   assert.deepStrictEqual({ ...reply }, { ok: true, titles: 1, skills: 2 });
-  assert.strictEqual(store.fitProfile.home.zip, "17101");
+  assert.strictEqual(store.fitProfile.home.zip, fixture.home.zip);
 });
 
 test("distances match Job Finder's estimate", async () => {
   const { context } = loadBackground();
   await context.loadProfileFile(profile);
-  const reply = await context.distancesFor(["Harrisburg, PA", "Towson, Maryland, United States", "Lancaster", "Greater Baltimore Area",
-    "Austin, TX (Hybrid)", "Nowhereville, ZZ"]);
-  const text = Object.fromEntries(Object.entries(reply.places).map(([place, trip]) => [place, trip && trip.text]));
-  assert.deepStrictEqual(text, {
-    "Harrisburg, PA": "under 1 mi · ~1 min", "Towson, Maryland, United States": "17 mi · ~40 min", "Lancaster": "35 mi · ~70 min",
-    "Greater Baltimore Area": "21 mi · ~50 min", "Austin, TX (Hybrid)": "1,365 mi · ~31 hr", "Nowhereville, ZZ": null,
-  });
+  const places = [fixture.place, "Towson, Maryland, United States", "Lancaster", "Greater Baltimore Area", "Austin, TX (Hybrid)",
+    "Nowhereville, ZZ"];
+  const reply = await context.distancesFor(places);
+  assert.deepStrictEqual(places.map((place) => reply.places[place] && reply.places[place].text), fixture.distances);
 });
 
 test("without a home, distances say what to do", async () => {
   const { context, store } = loadBackground();
   await context.loadProfileFile({ ...profile, home: { zip: "", state: "", lat: null, lon: null } });
-  assert.deepStrictEqual({ ...(await context.distancesFor(["Harrisburg, PA"])).places }, {});
+  assert.deepStrictEqual({ ...(await context.distancesFor([fixture.place])).places }, {});
   assert.match(store.distanceError, /Home ZIP/);
 });
 

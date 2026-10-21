@@ -5,6 +5,7 @@ const assert = require("node:assert");
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
+const fixture = require("./home-fixture.js");
 
 function loadBackground(answer) {
   const store = {};
@@ -29,7 +30,7 @@ function loadBackground(answer) {
 }
 
 const profile = { source: "job-finder", kind: "fit-profile", titles: ["Web Designer", "UX Designer"], skills: ["HTML"],
-  work_preferences: [], blocked_companies: [], skill_aliases: {}, ambiguous_skills: [], home: { zip: "17101", state: "MD", lat: 40.3, lon: -76.9 } };
+  work_preferences: [], blocked_companies: [], skill_aliases: {}, ambiguous_skills: [], home: fixture.home };
 const jobFinder = (data) => async () => ({ ok: true, status: 200, json: async () => data });
 
 test("the profile is read from Job Finder on this computer and kept", async () => {
@@ -37,7 +38,7 @@ test("the profile is read from Job Finder on this computer and kept", async () =
   await context.ready;
   const reply = await context.refreshProfile(true);
   assert.deepStrictEqual({ ...reply }, { ok: true, titles: 2, skills: 1 });
-  assert.strictEqual(store.fitProfile.home.zip, "17101");
+  assert.strictEqual(store.fitProfile.home.zip, fixture.home.zip);
   assert.ok(store.profileCheckedAt);
   assert.strictEqual(store.profileCheckError, "");
   assert.ok(asked.every((url) => url === "http://127.0.0.1:5000/extension/profile-file"));
