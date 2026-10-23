@@ -103,3 +103,8 @@ test("a job page is never marked saved", () => {
   const jobs = read(page("saved", TWO), url);
   assert.ok(jobs.every((job) => !job.saved));
 });
+
+test("the Saved box's number rides on every saved job, so the extension can tell when it has the whole list", () => {
+  assert.ok(read(page("saved", TWO)).every((job) => job.saved_total === 7));
+  assert.ok(read(page("applied", TWO)).every((job) => job.saved_total === undefined));
+});

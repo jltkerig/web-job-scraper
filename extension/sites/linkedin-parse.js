@@ -406,6 +406,15 @@
     return ticked.size === 1 ? [...ticked][0] : "";
   }
 
+  // The number in the Saved box's label ("Saved · 7"): how many jobs you have saved, or null when no label shows one.
+  function trackerSavedTotal(doc) {
+    for (const label of doc.querySelectorAll("label[for]")) {
+      const found = /^saved\W*(\d+)\s*$/i.exec((label.textContent || "").replace(/\s+/g, " ").trim());
+      if (found) return Number(found[1]);
+    }
+    return null;
+  }
+
   // The tracker's cards. Each job link holds only the title, so a card is the biggest box around the link that holds no
   // other job and not much else: title, "Company · Place (Remote)", "Posted 2h ago", "Notes", "Add note", "Apply".
   const TRACKER_NOISE = /^(?:notes?|add note|apply|easy apply|\+\d+)$/i;
@@ -474,6 +483,7 @@
     if (TRACKER_PATH.test(pagePath)) {
       // The ticked box says the stage; the page's own ?stage=applied link stands in when no box can be read.
       const stage = trackerStage(doc) || (TRACKER_STAGES.includes(urlStage) ? urlStage : "");
+      const savedTotal = stage === "saved" ? trackerSavedTotal(doc) : null;
       for (const tracked of trackerCards(doc)) {
         const job = jobs.get(tracked.job_id) || tracked;
         for (const field of ["title", "company", "location", "work_arrangement", "posted"]) {
@@ -482,7 +492,10 @@
         if (tracked.applied || stage === "applied") job.applied = true;
         if (tracked.closed) job.closed = true;
         if (tracked.easy_apply) job.easy_apply = true;
-        if (stage === "saved") job.saved = true;
+        if (stage === "saved") {
+          job.saved = true;
+          if (savedTotal !== null) job.saved_total = savedTotal; // lets the extension see when it has the whole Saved list
+        }
         jobs.set(job.job_id, job);
       }
     }

@@ -93,3 +93,37 @@ test("a list card that says the job is closed marks it closed, and the next file
   assert.strictEqual(saved.job_id, "1");
   assert.strictEqual(saved.closed, true);
 });
+
+const savedJob = (id, total) => ({ ...job(id), page_kind: "tracker", saved: true, saved_total: total });
+
+test("a Saved jobs list read in full un-saves the saved job it no longer lists, and the next file says so", async () => {
+  const { context, written } = loadBackground();
+  await vm.runInContext("ready", context);
+  context.addJobs("linkedin", [savedJob(1, 3), savedJob(2, 3), savedJob(3, 3)]);
+  await pause();
+  await context.flush(true);
+  await pause();
+  context.addJobs("linkedin", [savedJob(1, 2), savedJob(2, 2)]); // "Saved · 2" and both cards read: job 3 is no longer saved
+  await pause();
+  await context.flush(true);
+
+  const [, second] = written;
+  const byId = Object.fromEntries(JSON.parse(await second.text).jobs.map((saved) => [saved.job_id, saved]));
+  assert.strictEqual(byId["3"].saved, false);
+  assert.strictEqual(byId["1"], undefined, "jobs still saved are not rewritten");
+});
+
+test("a Saved jobs list that is only partly read un-saves nothing", async () => {
+  const { context, written } = loadBackground();
+  await vm.runInContext("ready", context);
+  context.addJobs("linkedin", [savedJob(1, 3), savedJob(2, 3), savedJob(3, 3)]);
+  await pause();
+  await context.flush(true);
+  await pause();
+  context.addJobs("linkedin", [savedJob(1, 3)]); // the box says 3, only one card was read (the list is still loading)
+  await pause();
+  await context.flush(true);
+  await context.flush(true);
+
+  assert.strictEqual(written.length, 1);
+});

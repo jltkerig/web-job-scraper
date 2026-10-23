@@ -157,7 +157,7 @@ function merge(old, job, now) {
   if (job.level === "opened") record.closed = Boolean(job.closed);
   else if (job.closed) record.closed = true; // a list card that says "No longer accepting applications"
   record.applied = Boolean(record.applied || job.applied); // LinkedIn doesn't show "Applied" everywhere, so keep it
-  if (job.saved) record.saved = true; // seen on your Saved jobs; only written when true, so other jobs' records don't change
+  if (job.saved) record.saved = true; // seen on your Saved jobs; only written when true (false once un-saved), so other jobs' records don't change
   if (job.easy_apply) record.easy_apply = true; // LinkedIn's Easy Apply button, likewise
   if (!record.page_kind || (record.page_kind === "other" && job.page_kind !== "other")) record.page_kind = job.page_kind;
   record.last_seen = now;
@@ -193,6 +193,22 @@ function addJobs(site, jobs, tabId) {
       state.dirty.add(`${site}|${today}`);
       changed = true;
       if (!old && record.title) added += 1;
+    }
+  }
+  // A Saved jobs list read in full (as many cards as the "Saved · N" box says) names every saved job, so a job the
+  // extension had as saved that is not on it was un-saved. The record says saved: false; Job Finder clears its tag.
+  if (site === "linkedin") {
+    const listed = new Set(jobs.filter((job) => job && job.saved).map((job) => `${site}:${job.job_id}`));
+    const totals = jobs.filter((job) => job && job.saved && Number.isInteger(job.saved_total)).map((job) => job.saved_total);
+    if (totals.length && listed.size >= Math.max(...totals)) {
+      for (const [key, record] of Object.entries(state.jobs)) {
+        if (record.site !== site || record.saved !== true || listed.has(key)) continue;
+        record.saved = false;
+        record.last_seen = now; // the day's file holds the jobs seen that day
+        record.changed_at = now;
+        state.dirty.add(`${site}|${today}`);
+        changed = true;
+      }
     }
   }
   runSawJobs(tabId, keys, freshKeys); // runs.js: counts toward a scheduled run's result
