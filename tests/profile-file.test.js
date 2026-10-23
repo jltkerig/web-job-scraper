@@ -59,9 +59,9 @@ test("without a home, distances say what to do", async () => {
   assert.match(store.distanceError, /Home ZIP/);
 });
 
-test("the only thing it asks Job Finder for is the profile, and that needs no extra permission", () => {
+test("the only thing it asks Job Finder for is the profile, and the manifest names Job Finder's address so Firefox does not ask about local network access", () => {
   const manifest = fs.readFileSync(path.join(__dirname, "../extension/manifest.json"), "utf8");
   const background = fs.readFileSync(path.join(__dirname, "../extension/background.js"), "utf8");
-  assert.ok(!manifest.includes("127.0.0.1")); // no host permission: Job Finder answers the extension's own address
+  assert.deepStrictEqual(manifest.match(/127\.0\.0\.1[^"]*/g), ["127.0.0.1/*"]); // named so Firefox does not ask about "access to other apps and services on this device"
   assert.deepStrictEqual(background.match(/127\.0\.0\.1[^"'`]*/g), ["127.0.0.1:5000/extension/profile-file"]);
 });
