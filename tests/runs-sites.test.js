@@ -141,3 +141,20 @@ test("a Maryland run types each Job Finder title into the search form, in your o
   assert.strictEqual(run.pages, 1); // the stub offers one page number in all
   assert.ok(clicks() > 0);
 });
+
+test("a Maryland job's own page is merged onto its card's record, which then counts as opened", () => {
+  const { context } = sandbox();
+  const since = Date.now() - 1000;
+  const now = new Date().toISOString();
+  context.state.dirty = new Set();
+  const card = { site: "mwe", job_id: "aaaa", title: "Graphic Designer", company: "", level: "seen", description: "", closed: false };
+  context.state.jobs["mwe:aaaa"] = card;
+  context.state.jobs["mwe:bbbb"] = { site: "mwe", job_id: "bbbb", title: "Graphic designer", company: "Cynet Systems", level: "opened",
+    description: "Mastery of Adobe InDesign and Photoshop", salary: "$30 - $35 Per Hour", last_seen: now, closed: false };
+  context.mergeOpenedMwe(card, since);
+  assert.strictEqual(card.level, "opened");
+  assert.strictEqual(card.description, "Mastery of Adobe InDesign and Photoshop");
+  assert.strictEqual(card.company, "Cynet Systems");
+  assert.strictEqual(context.state.jobs["mwe:bbbb"], undefined);
+  assert.ok(context.state.dirty.has(`mwe|${context.localDay()}`));
+});

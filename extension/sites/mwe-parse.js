@@ -198,7 +198,15 @@
       } catch (error) {
         // keep the page's own address
       }
-      jobs.push(job({ title, company, location, url, salary: pay ? pay[0].replace(/\s+/g, " ").trim() : "" }, pageUrl));
+      // The card's teaser is only the start of the description, so the job stays "seen" until its own page is opened.
+      const next = area.nextElementSibling;
+      const teaser = area.querySelector(".JCardDescription") || (next && next.matches(".JCardDescription") ? next : null);
+      // The fit chart's explanation can sit where the teaser does; it says nothing about the job.
+      const teaserText = teaser ? teaser.textContent.replace(/\s+/g, " ").trim() : "";
+      const card = job({ title, company, location, url, salary: pay ? pay[0].replace(/\s+/g, " ").trim() : "",
+        description: /^this chart is used to compare/i.test(teaserText) ? "" : teaserText }, pageUrl);
+      card.level = "seen";
+      jobs.push(card);
     }
     return jobs;
   }

@@ -6,7 +6,7 @@ It only reads the pages you open yourself. It never clicks, scrolls, or opens an
 
 **Sites:** LinkedIn, Indeed, the Maryland Workforce Exchange (mwejobs.maryland.gov) and USAJOBS (search results you open; job pages are read loosely until a real one has been seen). Glassdoor comes next.
 
-The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt disallows them), so Job Finder never searches it itself. The extension reads MWE pages in your own Firefox, and a run you start searches your Job Finder titles there at a human pace. Many of the same jobs also reach Job Finder through the National Labor Exchange (usnlx.com), which Job Finder searches.
+The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt disallows them), so Job Finder never searches it itself. The extension reads MWE pages in your own Firefox, and a run you start searches your Job Finder titles there at a human pace, then opens every job it has not read yet (one every 25 to 60 seconds, however long that takes) to read their descriptions, since Job Finder works out a job's skills and Job Fit from the description. Many of the same jobs also reach Job Finder through the National Labor Exchange (usnlx.com), which Job Finder searches.
 
 ## How it works
 

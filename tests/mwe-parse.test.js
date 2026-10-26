@@ -105,6 +105,18 @@ test("the site's own result cards give title, employer, town and pay", () => {
   assert.notStrictEqual(jobs[0].job_id, jobs[1].job_id);
 });
 
+test("a card's description teaser is kept for skills, but the job stays seen; the chart sentence is not a teaser", () => {
+  const card = (teaser) => `<div class="JCardEmployerArea"><a href="https://mwejobs.maryland.gov/vosnet/jobbanks/jobdetails.aspx?enc=AB/1+x==" class="JCardTitle">Web Designer:</a>
+    <div class="JCardEmployer"> Acme Inc <div class="JCardEmployerLocation"> Laurel, MD </div></div>
+    <div class="JCardDescription">${teaser}</div></div>`;
+  const teaser = "Design websites in Figma, HTML and CSS, and build Adobe Photoshop and Illustrator assets for our marketing team every week.";
+  const [kept] = read(`<html><body>${card(teaser)}</body></html>`, LIST);
+  assert.strictEqual(kept.description, teaser);
+  assert.strictEqual(kept.level, "seen");
+  const [chart] = read(`<html><body>${card("This chart is used to compare your background against this job")}</body></html>`, LIST);
+  assert.strictEqual(chart.description, "");
+});
+
 test("the search form page is not a jobs page, the results page is", () => {
   assert.strictEqual(parse.expectsJobs("https://mwejobs.maryland.gov/vosnet/JobBanks/JobSearchCriteriaQuick.aspx?nf=1&"), false);
   assert.strictEqual(parse.expectsJobs("https://mwejobs.maryland.gov/vosnet/jobbanks/joblist.aspx?enc=91Ai"), true);

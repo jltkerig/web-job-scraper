@@ -317,6 +317,48 @@ async function mwePages(run, activeRun) {
   }
 }
 
+// The jobs this run saw from their result card only are opened one at a time, at a human pace, so their whole
+// description is read (Job Finder finds a job's skills, and so its Job Fit, in the description).
+async function mweOpenDetails(run, activeRun) {
+  const unread = (job) => job && job.site === "mwe" && job.level !== "opened" && !job.closed && /\/jobbanks\/jobdetails\.aspx/i.test(job.url || "");
+  // This run's jobs first (newest first), then every other job still unread; the run has no limit and takes as long as it takes.
+  const keys = [...new Set([...[...activeRun.seen].reverse(), ...Object.keys(state.jobs)])];
+  const toOpen = keys.map((key) => state.jobs[key]).filter(unread);
+  for (const job of toOpen) {
+    await pause(randomBetween(MWE_GAP_MS));
+    await checkRunTab(activeRun);
+    const startedAt = Date.now();
+    await openInRunTab(activeRun, job.url);
+    await checkRunTab(activeRun);
+    await pause(randomBetween(RUN_PAGE_WAIT_MS)); // time on the job's page for its details to be read
+    await checkRunTab(activeRun);
+    mergeOpenedMwe(job, startedAt);
+    run.opened += 1;
+    persist();
+  }
+}
+
+// A job's own page can name the employer and place differently than its card did ("Baltimore, MD - 21230"), and a job is
+// known by title, employer and place, so the page is saved as a second record. Its description, pay and date are moved
+// onto the card's record (which then counts as opened, and is not opened again) and the second record is dropped.
+function mergeOpenedMwe(card, since) {
+  const title = String(card.title || "").toLowerCase();
+  const key = `mwe:${card.job_id}`;
+  for (const [otherKey, other] of Object.entries(state.jobs)) {
+    if (otherKey === key || other.site !== "mwe" || other.level !== "opened" || Date.parse(other.last_seen) < since) continue;
+    if (String(other.title || "").toLowerCase() !== title) continue;
+    for (const field of ["description", "salary", "posted", "work_arrangement"]) if (other[field]) card[field] = other[field];
+    if (!card.company && other.company) card.company = other.company;
+    card.level = "opened";
+    card.closed = Boolean(other.closed);
+    card.last_seen = other.last_seen;
+    card.changed_at = other.last_seen;
+    state.dirty.add(`mwe|${localDay()}`);
+    delete state.jobs[otherKey];
+    return;
+  }
+}
+
 // Types a title into the search form's keyword box and presses its Search button. Returns "" when done, or why not.
 function mweSearchCode(title) {
   return `(() => {
@@ -355,6 +397,7 @@ async function runMwe(run, activeRun) {
     activeRun.ownsTab = false;
     await pause(randomBetween([3000, 6000]));
     await mwePages(run, activeRun);
+    await mweOpenDetails(run, activeRun);
     return;
   }
   if (tabs.length) {
@@ -376,6 +419,7 @@ async function runMwe(run, activeRun) {
     await mwePages(run, activeRun);
     await pause(randomBetween(RUN_GAP_MS));
   }
+  await mweOpenDetails(run, activeRun);
 }
 
 // Clicks Indeed's own "next page" arrow, one page at a time, with a pause between each.
@@ -501,7 +545,7 @@ async function startRun(id) {
     run.seen = activeRun.seen.size;
     run.fresh = activeRun.fresh.size;
     const parts = [`${run.seen} jobs`, `${run.fresh} new`];
-    if (site === "linkedin") parts.push(`${run.opened} opened for details`);
+    if (site === "linkedin" || site === "mwe") parts.push(`${run.opened} opened for details`);
     if (site === "mwe" || site === "indeed") parts.push(`${run.pages || 0} more pages read`);
     finishRun(run, "done", null, parts.join(", "));
   } catch (problem) {

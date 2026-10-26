@@ -3,9 +3,9 @@
                    "web-job-scraper@jamie.local":  {
                                                        "updates":  [
                                                                        {
-                                                                           "update_hash":  "sha256:d222b17479ea7bc7f7c8494c299aac28e8b4b780be065a7be770149f04cfc217",
-                                                                           "version":  "0.19.8",
-                                                                           "update_link":  "https://jltkerig.github.io/web-job-scraper/web-job-scraper-v0.19.8.xpi"
+                                                                           "update_hash":  "sha256:1321155b85a49b3e858938703facff89b06d9a936380051012d097bd04295ba3",
+                                                                           "version":  "0.19.9",
+                                                                           "update_link":  "https://jltkerig.github.io/web-job-scraper/web-job-scraper-v0.19.9.xpi"
                                                                        }
                                                                    ]
                                                    }
