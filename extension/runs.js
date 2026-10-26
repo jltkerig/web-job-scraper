@@ -52,6 +52,8 @@ const MWE_TITLES = 15; // most Job Finder titles searched on Maryland Workforce 
 const MWE_SEARCH_PAGE = "https://mwejobs.maryland.gov/vosnet/JobBanks/JobSearchCriteriaQuick.aspx";
 const MWE_PAGES = 15; // most page numbers clicked in one run
 const MWE_GAP_MS = [25000, 60000]; // time on each Maryland page before the next number is clicked
+const MWE_MAX_OPENED = 40; // job pages opened for details in a normal Maryland run; a "full" run has no limit
+const RUN_TAB_PAGES = 10; // pages loaded in one run tab before it is closed and a fresh one opened (frees Firefox's memory)
 const INDEED_TITLES = 10; // most Job Finder titles searched on Indeed
 const INDEED_SEARCH_PAGE = "https://www.indeed.com/";
 const INDEED_PAGES = 4; // most "next page" clicks per title
@@ -84,11 +86,12 @@ function sortRuns() {
 
 // ---------- scheduling ----------
 
-function addRun(when, site = "linkedin") {
+function addRun(when, site = "linkedin", all = false) {
   const time = Date.parse(when);
   if (!Number.isFinite(time)) throw new Error("Pick a date and time for the run.");
   if (time < Date.now() - 60000) throw new Error("That time has already passed.");
   const run = { id: `run-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, site, when: new Date(time).toISOString(), status: "scheduled" };
+  if (all) run.all = true; // a full run: no limit on the job pages opened for details
   state.runs.push(run);
   sortRuns();
   browser.alarms.create(`run:${run.id}`, { when: time });
@@ -136,9 +139,20 @@ function finishRun(run, status, code, message) {
   updateBadge();
 }
 
+// Swaps the run's tab for a new one so the memory the old pages used is freed. A tab that was already open
+// (yours) is left open; the run carries on in a tab of its own.
+async function freshRunTab(activeRun) {
+  const created = await browser.tabs.create({ url: "about:blank", active: false });
+  const old = { tabId: activeRun.tabId, ownsTab: activeRun.ownsTab };
+  Object.assign(activeRun, { tabId: created.id, ownsTab: true, pagesInTab: 0 });
+  if (old.tabId !== null && old.ownsTab) await browser.tabs.remove(old.tabId).catch(() => {});
+}
+
 // Opens a page in the run's tab and waits for it to finish loading.
-function openInRunTab(activeRun, url) {
-  if (activeRun.stopped) return Promise.reject(activeRun.stopped);
+async function openInRunTab(activeRun, url) {
+  if (activeRun.stopped) throw activeRun.stopped;
+  if (activeRun.ownsTab && (activeRun.pagesInTab || 0) >= RUN_TAB_PAGES) await freshRunTab(activeRun);
+  activeRun.pagesInTab = (activeRun.pagesInTab || 0) + 1;
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       browser.tabs.onUpdated.removeListener(listener);
@@ -321,9 +335,12 @@ async function mwePages(run, activeRun) {
 // description is read (Job Finder finds a job's skills, and so its Job Fit, in the description).
 async function mweOpenDetails(run, activeRun) {
   const unread = (job) => job && job.site === "mwe" && job.level !== "opened" && !job.closed && /\/jobbanks\/jobdetails\.aspx/i.test(job.url || "");
-  // This run's jobs first (newest first), then every other job still unread; the run has no limit and takes as long as it takes.
+  // This run's jobs first (newest first), then every other job still unread. A normal run opens at most MWE_MAX_OPENED
+  // (the rest wait for the next run); a full run has no limit and takes as long as it takes.
   const keys = [...new Set([...[...activeRun.seen].reverse(), ...Object.keys(state.jobs)])];
-  const toOpen = keys.map((key) => state.jobs[key]).filter(unread);
+  const unreadJobs = keys.map((key) => state.jobs[key]).filter(unread);
+  const toOpen = run.all ? unreadJobs : unreadJobs.slice(0, MWE_MAX_OPENED);
+  if (!activeRun.ownsTab && toOpen.length) await freshRunTab(activeRun); // never browse many pages in your own tab
   for (const job of toOpen) {
     await pause(randomBetween(MWE_GAP_MS));
     await checkRunTab(activeRun);

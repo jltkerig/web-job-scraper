@@ -182,6 +182,24 @@ function runBlock(site) {
   });
   const now = el("button", { type: "button", textContent: "Run now", title: "Start a run now" });
   now.addEventListener("click", () => runAction({ type: "run-now", site }));
+  const buttons = [when, add, now];
+  if (site === "mwe") {
+    // A normal Maryland run opens up to 40 job pages for details; a full run opens every unread one (slow: for overnight).
+    add.title = "Schedule a normal run (up to 40 job pages opened for details)";
+    now.title = "Start a normal run now (up to 40 job pages opened for details)";
+    const addFull = el("button", { type: "button", textContent: "Add full", title: "Schedule a full run (every unread job page opened; slow)" });
+    addFull.addEventListener("click", () => {
+      if (!when.value) {
+        message.textContent = "Pick a date and time first.";
+        return;
+      }
+      runAction({ type: "add-run", site, all: true, when: new Date(when.value).toISOString() });
+    });
+    const nowFull = el("button", { type: "button", textContent: "Run full now", title: "Start a full run now (every unread job page opened; slow)" });
+    nowFull.addEventListener("click", () => runAction({ type: "run-now", site, all: true }));
+    buttons.splice(2, 0, addFull);
+    buttons.push(nowFull);
+  }
   const alertBox = el("div", { className: "run-alert warning", hidden: true });
   const list = el("ul", { className: "run-list" });
   alertBox.dataset.site = site;
@@ -189,7 +207,7 @@ function runBlock(site) {
   return el("div", { className: "runs" }, [
     el("div", { className: "hint", textContent: RUN_HINTS[site] || "" }),
     alertBox,
-    el("div", { className: "run-add" }, [when, add, now]),
+    el("div", { className: "run-add" }, buttons),
     list,
   ]);
 }
@@ -215,6 +233,7 @@ function showRuns(result) {
       let detail = run.message || "";
       if (run.status === "running") detail = run.site === "mwe" || run.site === "indeed" ? `${run.pages || 0} pages read so far` : `${run.opened || 0} opened so far`;
       if (run.status === "stopped" && run.code) detail = `[${run.code}] ${detail}`;
+      if (run.all) detail = `full run · ${detail}`;
       if (run.late && run.status !== "scheduled") detail = `ran late (Firefox was closed) · ${detail}`;
       const item = el("li", {}, [
         el("span", { className: `tag ${run.status}`, textContent: TAGS[run.status] || run.status }),

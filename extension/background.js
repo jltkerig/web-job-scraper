@@ -657,7 +657,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
       case "pet-state":
         return petState(tabId);
       case "add-run":
-        addRun(message.when, message.site || "linkedin");
+        addRun(message.when, message.site || "linkedin", Boolean(message.all));
         await persist();
         return popupState();
       case "remove-run":
@@ -665,7 +665,7 @@ browser.runtime.onMessage.addListener((message, sender) => {
         await persist();
         return popupState();
       case "run-now": {
-        const run = addRun(new Date().toISOString(), message.site || "linkedin");
+        const run = addRun(new Date().toISOString(), message.site || "linkedin", Boolean(message.all));
         browser.alarms.clear(`run:${run.id}`);
         startRun(run.id); // runs on its own; the panel shows its tag
         await persist();

@@ -40,7 +40,8 @@ test("every website has its own run buttons under its name, and the old runs sec
   assert.strictEqual(cards.length, 4);
   for (const card of cards) {
     const labels = [...card.querySelectorAll(".run-add button")].map((button) => button.textContent);
-    assert.deepStrictEqual(labels, ["Add", "Run now"]);
+    // Maryland also has full runs (every unread job page opened), for overnight
+    assert.deepStrictEqual(labels, card.querySelector(".run-add button[title^='Start a normal']") ? ["Add", "Add full", "Run now", "Run full now"] : ["Add", "Run now"]);
     assert.ok(card.querySelector(".run-add input[type=datetime-local]"));
   }
   assert.strictEqual(window.document.querySelector("section.runs"), null);
@@ -50,10 +51,17 @@ test("every website has its own run buttons under its name, and the old runs sec
 test("Run now on a site asks for a run on that site", async () => {
   const { window, sent } = await open();
   const mweCard = [...window.document.querySelectorAll("#sites .site")][1];
-  mweCard.querySelectorAll(".run-add button")[1].click();
+  const [, , now, nowFull] = mweCard.querySelectorAll(".run-add button");
+  now.click();
   await new Promise((resolve) => setTimeout(resolve, 20));
   const asked = sent.find((message) => message.type === "run-now");
   assert.strictEqual(asked.site, "mwe");
+  assert.ok(!asked.all);
+  nowFull.click();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const full = sent.filter((message) => message.type === "run-now")[1];
+  assert.strictEqual(full.site, "mwe");
+  assert.strictEqual(full.all, true);
 });
 
 test("runs and alerts are listed under the site they belong to (older runs count as LinkedIn)", async () => {
