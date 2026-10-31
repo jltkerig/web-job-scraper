@@ -190,7 +190,7 @@ async function collectionLinks(activeRun) {
       if (match) found.add(`https://www.linkedin.com/jobs/collections/${match[1]}/`);
     }
     return [...found];
-  } catch (error) {
+  } catch {
     return []; // the page couldn't be read: the known collections are still read
   }
 }
@@ -201,7 +201,7 @@ async function checkRunTab(activeRun) {
   let tab;
   try {
     tab = await browser.tabs.get(activeRun.tabId);
-  } catch (error) {
+  } catch {
     throw { code: ERRORS.runTabClosed, message: "The run's tab was closed." };
   }
   const name = SITE_NAMES[activeRun.site] || "The site";
@@ -242,7 +242,7 @@ async function loadWholeTracker(activeRun) {
             .map((a) => (/\\/jobs\\/view\\/(\\d+)/.exec(a.href) || [])[1]).filter(Boolean)).size;
         })()`,
       });
-    } catch (error) {
+    } catch {
       return; // the page couldn't be scrolled: what loaded is still read
     }
     if (count === last) return;

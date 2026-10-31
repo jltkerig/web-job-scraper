@@ -41,10 +41,10 @@
 
   // What kind of page a job was found on, so job-finder can tell recommendations from searches.
   function pageKind(pageUrl) {
-    let path = "";
+    let path;
     try {
       path = new URL(pageUrl).pathname.toLowerCase();
-    } catch (error) {
+    } catch {
       return "other";
     }
     if (TRACKER_PATH.test(path)) return "tracker";
@@ -315,10 +315,10 @@
   // Each card as { element, job }: element is the box the card's text came from (used to mark good fits).
   function cards(doc, pageUrl) {
     const found = new Map();
-    let outsideJobs = false;
+    let outsideJobs;
     try {
       outsideJobs = !onJobsPage(new URL(pageUrl));
-    } catch (error) {
+    } catch {
       outsideJobs = false;
     }
     // The 2026 search pages: each card is a clickable block tagged job-card-component-ref-<job id> and holds no link.
@@ -348,10 +348,10 @@
       const id = idFromUrl(link.getAttribute("href"));
       if (!id || found.has(id)) continue;
       // Only links into the Jobs section are job cards; others (messaging a contact "about this job") only mention it.
-      let path = "";
+      let path;
       try {
         path = new URL(link.getAttribute("href"), pageUrl).pathname;
-      } catch (error) {
+      } catch {
         continue;
       }
       if (!path.startsWith("/jobs")) continue;
@@ -471,13 +471,13 @@
       jobs.set(job.job_id, job);
     }
     // On the job tracker, every card is one of your jobs; the only ticked stage says which kind (Saved, Applied).
-    let pagePath = "";
+    let pagePath;
     let urlStage = "";
     try {
       const parsed = new URL(pageUrl);
       pagePath = parsed.pathname;
       urlStage = (parsed.searchParams.get("stage") || "").replace(/[_-]/g, " ").toLowerCase();
-    } catch (error) {
+    } catch {
       pagePath = "";
     }
     if (TRACKER_PATH.test(pagePath)) {
@@ -524,7 +524,7 @@
       if (!text.includes("obPosting")) continue;
       try {
         jobs.push(...fromVoyager(JSON.parse(text), pageUrl));
-      } catch (error) {
+      } catch {
         // Not JSON, or not job data.
       }
     }
@@ -537,7 +537,7 @@
       const path = new URL(pageUrl).pathname.toLowerCase();
       return path === "/jobs" || path === "/jobs/" || path.startsWith("/jobs/view/") ||
         path.startsWith("/jobs/search") || path.startsWith("/jobs/collections") || COMPANY_JOBS.test(path);
-    } catch (error) {
+    } catch {
       return false;
     }
   }

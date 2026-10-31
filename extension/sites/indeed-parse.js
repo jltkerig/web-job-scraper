@@ -26,7 +26,7 @@
   function paramOf(pageUrl, name) {
     try {
       return new URL(pageUrl).searchParams.get(name) || "";
-    } catch (error) {
+    } catch {
       return "";
     }
   }
@@ -42,7 +42,7 @@
   function pageKind(pageUrl) {
     try {
       return /\/viewjob/i.test(new URL(pageUrl).pathname) ? "other" : "search";
-    } catch (error) {
+    } catch {
       return "other";
     }
   }
@@ -51,7 +51,7 @@
     try {
       const url = new URL(pageUrl);
       return /^\/(?:m\/)?viewjob/i.test(url.pathname) || (/^\/jobs/i.test(url.pathname) && url.searchParams.has("q"));
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -99,7 +99,7 @@
     if (!raw) return null;
     try {
       return JSON.parse(raw);
-    } catch (error) {
+    } catch {
       return null;
     }
   }

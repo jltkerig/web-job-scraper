@@ -57,7 +57,7 @@ function siteOfTab(tabUrl) {
   let host = "";
   try {
     host = new URL(tabUrl).hostname.replace(/^www./, "");
-  } catch (error) {
+  } catch {
     return "";
   }
   return Object.keys(SITE_PAGES).find((site) => new URL(SITE_PAGES[site]).hostname.replace(/^www./, "") === host) || "";

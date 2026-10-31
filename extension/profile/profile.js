@@ -17,7 +17,7 @@
     let profile;
     try {
       profile = JSON.parse(await file.text());
-    } catch (error) {
+    } catch {
       say("That file couldn't be read as a Job Finder profile.", false);
       return;
     }

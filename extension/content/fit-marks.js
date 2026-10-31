@@ -92,7 +92,7 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       if (!hiddenCompanies.some((saved) => company(saved) === company(name))) hiddenCompanies = [...hiddenCompanies, name];
-      try { await browser.storage.local.set({ hiddenCompanies }); } catch (error) { /* hidden until the page reloads */ }
+      try { await browser.storage.local.set({ hiddenCompanies }); } catch { /* hidden until the page reloads */ }
       schedule();
     });
     shadow.appendChild(button);
@@ -134,7 +134,7 @@
     let reply = null;
     try {
       reply = await browser.runtime.sendMessage({ type: "distances", places });
-    } catch (error) { /* the background script didn't answer */ }
+    } catch { /* the background script didn't answer */ }
     for (const place of places) {
       if (reply && reply.places && place in reply.places) distances.set(place, reply.places[place]);
       else retryAt.set(place, now + 2 * 60 * 1000); // failed: wait two minutes, not a second
@@ -356,7 +356,7 @@
           : "Fit markers: your Job Finder profile has no job titles yet, so nothing is marked.";
         showNotice(problem);
       }
-    } catch (error) {
+    } catch {
       problem = "Fit markers: the extension couldn't read its saved profile. Load it again (extension button > Load profile).";
       showNotice(problem);
     }

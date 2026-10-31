@@ -10,8 +10,8 @@
   const LABEL = /^(employer|company|employer name|location|job location|posted|date posted|posting date|salary|wage|job (?:order )?(?:id|number)|mwe job id)\s*:?$/i;
   // Words in a job's link or a page's headings that are not a job's title: a date, a button, a section name.
   const NOT_A_TITLE = /^(?:\d{1,2}\/\d{1,2}\/\d{2,4}|apply(?: now)?|view(?: details)?|details|more|save|job (?:summary|description|details|information|overview)|help for .*|e-?signature.*)$/i;
-  // Page text that is not a company: the fit chart's explanation, or any long sentence.
-  const NOT_A_COMPANY = /^(?:this chart is used|you match \d|\d|posted|save|apply|view)|ago$/i;
+  // Page text that is not a company: the fit chart's explanation, a button's whole text, or a date. A name that merely starts with Save, Apply or View is a company.
+  const NOT_A_COMPANY = /^(?:this chart is used|you match \d|\d|posted|save(?: job)?$|apply(?: now)?$|view(?: details)?$)|ago$/i;
   const CLOSED_TEXT = /this job (?:order )?(?:is|has been) (?:closed|filled|expired)|no longer (?:available|accepting)/i;
 
   function isDetailPage(pageUrl) {
@@ -100,7 +100,7 @@
       let data;
       try {
         data = JSON.parse(script.textContent || "");
-      } catch (error) {
+      } catch {
         continue;
       }
       for (const node of nodes(data)) {
@@ -187,15 +187,15 @@
       const employer = area.querySelector(".JCardEmployer");
       const place = employer && employer.querySelector(".JCardEmployerLocation");
       const company = employer
-        ? Array.from(employer.childNodes).filter((node) => node.nodeType === 3).map((node) => node.nodeValue.replace(/[\s ]+/g, " ").trim()).find((text) => text && !/^not available$/i.test(text)) || ""
+        ? Array.from(employer.childNodes).filter((node) => node.nodeType === 3).map((node) => node.nodeValue.replace(/[\s\u00a0]+/g, " ").trim()).find((text) => text && !/^not available$/i.test(text)) || ""
         : "";
-      const location = place ? place.textContent.replace(/[\s ]+/g, " ").trim() : "";
+      const location = place ? place.textContent.replace(/[\s\u00a0]+/g, " ").trim() : "";
       const typePay = (area.querySelector(".JCardTypePay") || {}).textContent || "";
       const pay = typePay.match(/\$[\d,.]+(?:\.\d+)?\s*(?:-\s*\$[\d,.]+\s*)?(?:Year|Hour|Month|Week|Day)?/i);
       let url = pageUrl;
       try {
         url = new URL(link.getAttribute("href"), pageUrl).href;
-      } catch (error) {
+      } catch {
         // keep the page's own address
       }
       // The card's teaser is only the start of the description, so the job stays "seen" until its own page is opened.
@@ -230,7 +230,7 @@
       let url = pageUrl;
       try {
         url = new URL(link.getAttribute("href"), pageUrl).href;
-      } catch (error) {
+      } catch {
         // keep the page's own address
       }
       jobs.push(job({ title, company, location, url }, pageUrl));

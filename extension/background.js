@@ -25,7 +25,7 @@ function siteForUrl(url) {
   let host = "";
   try {
     host = new URL(url).hostname;
-  } catch (error) {
+  } catch {
     return null;
   }
   return Object.keys(SITES).find((site) => SITES[site].hosts.includes(host)) || null;
@@ -389,7 +389,7 @@ for (const [site, info] of Object.entries(SITES)) {
       rememberResponse(details.tabId, details.url, text);
       try {
         addJobs(site, info.parse.fromVoyager(JSON.parse(text), details.documentUrl), details.tabId);
-      } catch (error) {
+      } catch {
         // Not JSON, or not job data.
       }
     };
@@ -439,7 +439,7 @@ async function autoSample(site, tabId, pageUrl) {
   let kind = "page";
   try {
     kind = new URL(pageUrl).pathname.split("/").filter(Boolean)[0] || "home";
-  } catch (error) {
+  } catch {
     // keep the generic kind
   }
   const key = `sample:${site}:${kind}`;
@@ -449,7 +449,7 @@ async function autoSample(site, tabId, pageUrl) {
     await saveDebug(site, tabId);
     state.autoSavedDay[key] = today;
     persistSoon();
-  } catch (error) {
+  } catch {
     // Not saved this time; the next page of that kind tries again.
   }
 }
@@ -478,7 +478,7 @@ async function pageSettled(site, message, tabId) {
     try {
       problem.saved = await saveDebug(site, tabId);
       state.autoSavedDay[site] = today;
-    } catch (error) {
+    } catch {
       problem.saved = null;
     }
   } else if (state.noDetails[site]) {
@@ -533,10 +533,10 @@ async function saveDebug(site, tabId) {
   // From the panel's button: the site is whichever job site the open tab is on.
   site = site || (tab && tab.url && siteForUrl(tab.url));
   if (!site) return saveOtherPage(tab, fail);
-  let page = null;
+  let page;
   try {
     page = tab ? await browser.tabs.sendMessage(tab.id, { type: "get-page-html" }) : null;
-  } catch (error) {
+  } catch {
     page = null; // the tab isn't a page the extension runs on
   }
   if (!page) throw fail(`Open the ${SITES[site].name} jobs page that had the problem, then try again.`);
@@ -557,11 +557,11 @@ async function saveOtherPage(tab, fail) {
   if (!tab || tab.id === undefined || !/^https?:\/\//i.test(tab.url || "")) {
     throw fail("Open the web page you want to save (a page starting with http or https), then press the button again.");
   }
-  let page = null;
+  let page;
   try {
     const [result] = await browser.tabs.executeScript(tab.id, { file: "/content/page-copy.js" });
     page = result;
-  } catch (error) {
+  } catch {
     throw fail("Firefox wouldn't let the extension read this page. Click the extension's button while the page is open, then try again.");
   }
   if (!page || typeof page.html !== "string") throw fail("The page gave nothing back to save. Try again once it has finished loading.");
@@ -594,13 +594,13 @@ function newer(a, b) {
 async function checkForUpdate() {
   const manifest = browser.runtime.getManifest();
   const current = manifest.version;
-  let update = null;
+  let update;
   try {
     const response = await fetch(manifest.browser_specific_settings.gecko.update_url, { cache: "no-store" });
     const data = await response.json();
     const updates = (((data.addons || {})[manifest.browser_specific_settings.gecko.id] || {}).updates) || [];
     update = updates.filter((item) => item.version && item.update_link).sort((a, b) => (newer(a.version, b.version) ? -1 : 1))[0] || null;
-  } catch (error) {
+  } catch {
     return { status: "error", message: `[${ERRORS.update}] Could not check for updates. Are you online?` };
   }
   if (!update || !newer(update.version, current)) return { status: "current", message: `Up to date (v${current}).` };
@@ -754,7 +754,7 @@ async function refreshProfile(force = false) {
   if (!force && saved.profileCheckedAt && Date.now() - Date.parse(saved.profileCheckedAt) < PROFILE_CHECK_EVERY_MS) {
     return { ok: true, skipped: true };
   }
-  let failure = "";
+  let failure;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
@@ -918,7 +918,7 @@ async function refreshFeedIfJobFinderOpen() {
     }
     await refreshFeed();
     if (!state.errors.jobaps) await browser.storage.local.set({ feedCheckedAt: new Date().toISOString() }); // a failed read is tried again next hour
-  } catch (error) {
+  } catch {
     // Job Finder isn't open: leave the feed alone
   }
 }

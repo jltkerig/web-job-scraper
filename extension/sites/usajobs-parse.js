@@ -94,7 +94,7 @@
       let url = jobUrl(id);
       try {
         url = new URL(link.getAttribute("href"), pageUrl).href.split("?")[0];
-      } catch (error) {
+      } catch {
         // keep the standard job address
       }
       jobs.push(job({

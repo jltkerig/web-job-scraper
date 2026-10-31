@@ -129,3 +129,16 @@ test("the fit chart's sentence is recognised as a bad employer, a real name is n
   assert.ok(!parse.badCompany("Maryland Institute College of Art"));
   assert.ok(!parse.badCompany(""));
 });
+
+test("an employer whose name starts with Save, Apply or View is kept; a button's own text is not an employer", () => {
+  const card = (employer) => `<ul><li><a href="https://mwejobs.maryland.gov/vosnet/jobbanks/jobdetails.aspx?enc=AB/1+x==">Web Designer</a>
+    <div>${employer}</div><div>Laurel, MD</div></li></ul>`;
+  for (const name of ["Save the Children", "Apply Digital", "View Inc", "Savers Marketplace", "Viewpoint Group"]) {
+    const [job] = read(`<html><body>${card(name)}</body></html>`, LIST);
+    assert.strictEqual(job.company, name);
+  }
+  for (const button of ["Save", "Save job", "Apply", "Apply now", "View", "View details"]) {
+    const [job] = read(`<html><body>${card(button)}</body></html>`, LIST);
+    assert.strictEqual(job.company, "");
+  }
+});
