@@ -148,7 +148,6 @@ Downloads\web-job-scraper\
 
 web-job-scraper\searches\
   passive-09-30-2026-14.05.12.347\linkedin\jobs.json   ← moved here when you click Yes
-  passive-09-30-2026-14.05.12.347\linkedin\jobs.csv    ← the same jobs, for a spreadsheet
   .imported.json                                       ← which files were already imported
 ```
 
