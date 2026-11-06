@@ -14,8 +14,8 @@ The Maryland Workforce Exchange doesn't allow automated visitors (its robots.txt
 2. The extension saves each job it sees into a file in your Downloads folder, one file per site per day. It saves at most every 5 minutes and again when you close the LinkedIn tab.
    On LinkedIn it reads every page, not only the Jobs section: Saved jobs, Applied jobs, a company page or the feed also show jobs, and a job marked *No longer accepting applications* is saved as closed. The fit markers, distance tags and the fox strip stay on the Jobs pages.
    Jobs placed outside the U.S. ("Türkiye (Remote)", "London, England, United Kingdom") are not saved; a location with any sign of the U.S., or an unclear one, is kept.
-3. Next time you open Job Finder, the Search page asks: *"Found 1 new capture file… Move them to web-job-scraper\searches and import them?"*
-4. Click **Yes**. Job Finder moves the files, checks each job against your profile, and adds the ones that fit. Click **Not now** and it asks again when new files arrive.
+3. While Job Finder's Search page is open, it imports new capture files by itself within about a minute: it moves them to its searches folder, checks each job against your profile, and adds the ones that fit. A job you opened gets its Job Fit from the description. The page doesn't reload; a **Reload** pill appears in the corner when the import added or updated jobs.
+4. LinkedIn jobs Job Finder saved from their card only (no description, so no Job Fit; the Search page says **Open on LinkedIn**) are sent to the extension with the daily profile check. Scheduled LinkedIn runs open them, after the run's own new jobs and within the same limit of 10 a run.
 
 ## One-time setup
 

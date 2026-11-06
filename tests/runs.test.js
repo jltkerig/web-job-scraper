@@ -8,7 +8,7 @@ const vm = require("vm");
 const SOURCE = fs.readFileSync(path.join(__dirname, "..", "extension", "runs.js"), "utf8");
 
 // A sandbox with what runs.js uses from background.js, and a tab whose address is decided by `redirect`.
-function sandbox({ redirect = (url) => url, jobsPerPage = 3 } = {}) {
+function sandbox({ redirect = (url) => url, jobsPerPage = 3, fitProfile = null } = {}) {
   const listeners = new Set();
   const tabs = new Map();
   const alarms = new Map();
@@ -67,6 +67,10 @@ function sandbox({ redirect = (url) => url, jobsPerPage = 3 } = {}) {
       },
     },
   };
+  if (fitProfile) {
+    context.browser.storage = { local: { get: async () => ({ fitProfile }) } };
+    context.LinkedInParse = { jobUrl: (id) => `https://www.linkedin.com/jobs/view/${id}` };
+  }
   vm.createContext(context);
   vm.runInContext(SOURCE, context);
   return { context, tabs, alarms };
@@ -105,6 +109,30 @@ test("a run reads the recommended pages and the watched companies' pages, opens 
   assert.ok(context.visited.includes("https://www.linkedin.com/jobs-tracker/")); // your saved jobs are read too
   assert.strictEqual(tabs.size, 0, "the run's tab was left open");
   assert.strictEqual(context.isRunTab(1), false);
+});
+
+test("after its own new jobs, a run opens the LinkedIn jobs Job Finder has no description for, and only LinkedIn job pages", async () => {
+  const unread_jobs = ["https://www.linkedin.com/jobs/view/900", "https://evil.example/jobs/view/901",
+    "https://www.linkedin.com/jobs/view/902", "https://www.linkedin.com/jobs/view/903/", "https://www.linkedin.com/jobs/view/900"];
+  const { context } = sandbox({ jobsPerPage: 1, fitProfile: { titles: [], unread_jobs } });
+  context.state.jobs["linkedin:902"] = { url: "https://www.linkedin.com/jobs/view/902", level: "opened", closed: false };
+  const run = context.addRun(new Date().toISOString());
+  await context.startRun(run.id);
+  const done = await finished(context, run.id);
+  assert.strictEqual(done.status, "done");
+  assert.strictEqual(done.opened, done.fresh + 2); // 900 and 903; 901 is not LinkedIn, 902 was opened already
+  const opened = context.visited.filter((url) => /\/jobs\/view\/9\d\d/.test(url));
+  assert.deepStrictEqual(opened, ["https://www.linkedin.com/jobs/view/900", "https://www.linkedin.com/jobs/view/903"]);
+  assert.ok(!context.visited.some((url) => url.includes("evil.example")));
+});
+
+test("a run with too many new jobs of its own opens none of Job Finder's", async () => {
+  const { context } = sandbox({ jobsPerPage: 8, fitProfile: { titles: [], unread_jobs: ["https://www.linkedin.com/jobs/view/900"] } });
+  const run = context.addRun(new Date().toISOString());
+  await context.startRun(run.id);
+  const done = await finished(context, run.id);
+  assert.strictEqual(done.opened, 10);
+  assert.ok(!context.visited.includes("https://www.linkedin.com/jobs/view/900"));
 });
 
 test("a sign-in page stops the run (E7006) and leaves a warning", async () => {

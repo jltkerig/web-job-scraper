@@ -1,6 +1,7 @@
 // Scheduled LinkedIn runs: at a date and time you pick, Firefox opens LinkedIn's recommended-jobs pages in a
 // background tab, collects the jobs the usual way (the page's own data, read by content/capture.js and
-// background.js), opens up to 10 new jobs for their details at a human pace, and closes the tab.
+// background.js), opens up to 10 jobs for their details at a human pace (new ones first, then jobs Job Finder still
+// needs a description for), and closes the tab.
 // Each run gets a result tag: Scheduled, Running, Done, Stopped (with an error code) or Missed.
 // It stops at once on a sign-in page or any security check, and no further run happens that day.
 // Loaded after background.js and shares its globals (state, ERRORS, persist, updateBadge, localDay).
@@ -36,7 +37,7 @@ const RUN_LIST_STEP = 25;
 const RUN_COMPANY_PAGES = [
   "https://www.linkedin.com/company/flywheel-digital/jobs/", // Flywheel
 ];
-const RUN_MAX_OPENED = 10; // new jobs opened per run for their details
+const RUN_MAX_OPENED = 10; // jobs opened per run for their details (new ones, then Job Finder's unread ones)
 const RUN_GAP_MS = [20000, 45000]; // time between opening jobs, picked at random
 const RUN_PAGE_WAIT_MS = [12000, 20000]; // time on each list page for its jobs to load
 const RUN_SCROLL_WAIT_MS = [3000, 6000]; // time after each scroll of the tracker for more jobs to load
@@ -253,7 +254,7 @@ async function loadWholeTracker(activeRun) {
 }
 
 // LinkedIn: the jobs home, every collection (page by page), the watched companies' pages and your tracker, then up to
-// 10 new jobs opened for their details.
+// 10 jobs opened for their details: the run's new ones, then the ones Job Finder saved from their card only.
 async function runLinkedin(run, activeRun) {
   const lists = new Set(RUN_COLLECTIONS);
   for (const page of RUN_PAGES) {
@@ -271,8 +272,9 @@ async function runLinkedin(run, activeRun) {
     await readRunPage(activeRun, page);
     if (/[?&]stage=applied\b/.test(page)) await loadWholeTracker(activeRun);
   }
-  const toOpen = [...activeRun.fresh].map((key) => state.jobs[key])
-    .filter((job) => job && job.level !== "opened" && !job.closed).slice(0, RUN_MAX_OPENED);
+  const fresh = [...activeRun.fresh].map((key) => state.jobs[key])
+    .filter((job) => job && job.level !== "opened" && !job.closed);
+  const toOpen = [...fresh, ...(await jobFinderUnread(fresh))].slice(0, RUN_MAX_OPENED);
   for (const job of toOpen) {
     await pause(randomBetween(RUN_GAP_MS));
     await checkRunTab(activeRun);
@@ -283,6 +285,31 @@ async function runLinkedin(run, activeRun) {
     run.opened += 1;
     persist();
   }
+}
+
+// The LinkedIn jobs Job Finder saved from their card only (unread_jobs in its profile file, newest first): opened after
+// the run's own new jobs so their description, and so their Job Fit, reaches Job Finder. Only the job's id is used:
+// the link is rebuilt as a LinkedIn job page, so a profile file can't send a run anywhere else. Jobs already opened or
+// closed here, and ones already in the run's list, are left out.
+async function jobFinderUnread(already) {
+  let saved;
+  try {
+    saved = await browser.storage.local.get("fitProfile");
+  } catch {
+    return []; // storage unavailable: the run's own jobs are still opened
+  }
+  const listed = new Set(already.map((job) => job.url));
+  const unread = [];
+  for (const link of (saved.fitProfile && saved.fitProfile.unread_jobs) || []) {
+    const id = (/^https:\/\/www\.linkedin\.com\/jobs\/view\/(\d+)\/?$/.exec(String(link)) || [])[1];
+    if (!id) continue;
+    const known = state.jobs[`linkedin:${id}`];
+    const url = globalThis.LinkedInParse.jobUrl(id);
+    if ((known && (known.level === "opened" || known.closed)) || listed.has(url)) continue;
+    listed.add(url);
+    unread.push({ url });
+  }
+  return unread;
 }
 
 // Your Job Finder titles (asked for again first, so a title added since the last daily check is included).
